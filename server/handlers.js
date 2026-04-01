@@ -33,22 +33,23 @@ function registerHandlers(io) {
         if (room) {
           socket.join(rejoinedRoomId)
           socket.emit('rejoin', { roomId: rejoinedRoomId })
+          socket.to(rejoinedRoomId).emit('opponent_rejoined', { roomId: rejoinedRoomId })
           console.log(`[server] ${uuid} rejoined room ${rejoinedRoomId}`)
         }
       }
     })
 
     // --- Matchmaking ---
-    socket.on('find_match', ({ gameId }) => {
+    socket.on('find_match', ({ gameId, displayName }) => {
       const uuid = getUuid(socket.id)
       if (!uuid) {
         console.log(`[server] find_match: socket ${socket.id} not registered`)
         return
       }
 
-      const match = enqueue(gameId, uuid)
+      const match = enqueue(gameId, uuid, displayName)
       if (match) {
-        const { player1, player2, roomId } = match
+        const { player1, p1Name, player2, p2Name, roomId } = match
 
         // create room
         createRoom(roomId, player1, player2, gameId)
@@ -63,11 +64,18 @@ function registerHandlers(io) {
         if (sock1) sock1.join(roomId)
         if (sock2) sock2.join(roomId)
 
-        // emit match_found — player1 is host
-        io.to(s1).emit('match_found', { roomId, isHost: true })
-        io.to(s2).emit('match_found', { roomId, isHost: false })
+        // emit match_found with opponent names mapped
+        io.to(s1).emit('match_found', { roomId, isHost: true, opponentName: p2Name })
+        io.to(s2).emit('match_found', { roomId, isHost: false, opponentName: p1Name })
 
         console.log(`[server] match_found emitted → room ${roomId}`)
+      }
+    })
+
+    socket.on('leave_queue', () => {
+      const uuid = getUuid(socket.id)
+      if (uuid) {
+        dequeue(uuid)
       }
     })
 
@@ -78,6 +86,7 @@ function registerHandlers(io) {
     socket.on('match_ended', ({ roomId }) => {
       const uuid = getUuid(socket.id)
       console.log(`[server] match_ended from ${uuid} for room ${roomId}`)
+      socket.to(roomId).emit('opponent_disconnected', { roomId })
       removeRoom(roomId)
     })
 
@@ -87,10 +96,8 @@ function registerHandlers(io) {
       console.log(`[server] socket disconnected: ${socket.id} (uuid: ${uuid})`)
 
       if (uuid) {
-        // remove from any matchmaking queues
         dequeue(uuid)
 
-        // check if they were in an active room
         const roomInfo = getRoomByPlayer(uuid)
         if (roomInfo) {
           startDisconnectTimer(uuid, roomInfo.roomId, io, getSocketId)

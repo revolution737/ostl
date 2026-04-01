@@ -51,17 +51,17 @@ function startDisconnectTimer(uuid, roomId, io, getSocketId) {
   cancelDisconnectTimer(uuid)
 
   console.log(`[rooms] starting ${DISCONNECT_GRACE_MS / 1000}s disconnect timer for ${uuid}`)
+  
+  // Natively alert the specific room that someone dropped unexpectedly (so UI shows reconnecting phase)
+  io.to(roomId).emit('opponent_reconnecting', { roomId })
 
   const timerId = setTimeout(() => {
     disconnectTimers.delete(uuid)
-    const opponentUuid = getOpponentUuid(roomId, uuid)
-    if (opponentUuid) {
-      const opponentSocketId = getSocketId(opponentUuid)
-      if (opponentSocketId) {
-        io.to(opponentSocketId).emit('opponent_disconnected', { roomId })
-        console.log(`[rooms] notified ${opponentUuid} that ${uuid} permanently disconnected`)
-      }
-    }
+    
+    // Officially terminate the room after grace period expires
+    io.to(roomId).emit('opponent_disconnected', { roomId })
+    console.log(`[rooms] ${uuid} permanently disconnected, notifying room ${roomId}`)
+    
     removeRoom(roomId)
   }, DISCONNECT_GRACE_MS)
 

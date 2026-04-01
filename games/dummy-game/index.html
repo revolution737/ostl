@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dummy WebGL Game</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #0f172a; /* slate-900 */
+      color: #cbd5e1; /* slate-300 */
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.8);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    h2 { margin: 0 0 10px 0; font-size: 16px; color: #fff; }
+    p { margin: 5px 0; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h2>[ iframe : Godot Engine Mock ]</h2>
+    <p>Use <b>WASD</b> or <b>Arrows</b> to move Local Player (Blue)</p>
+    <p>Opponent is Red.</p>
+  </div>
+  <canvas id="gameCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Resize canvas
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      drawFrame();
+    }
+    window.addEventListener('resize', resize);
+    
+    // Game State
+    // Start slightly offset to avoid overlapping perfectly.
+    const myPlayer = { x: 100, y: window.innerHeight / 2 - 20, size: 40, color: '#4f46e5', speed: 15 };
+    const opponent = { x: window.innerWidth - 140, y: window.innerHeight / 2 - 20, size: 40, color: '#e11d48' };
+
+    // Rendering loop
+    function drawFrame() {
+      // clear background
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // draw opponent (red)
+      ctx.fillStyle = opponent.color;
+      ctx.fillRect(opponent.x, opponent.y, opponent.size, opponent.size);
+      
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(opponent.x, opponent.y, opponent.size, opponent.size);
+
+      // draw me (blue)
+      ctx.fillStyle = myPlayer.color;
+      ctx.fillRect(myPlayer.x, myPlayer.y, myPlayer.size, myPlayer.size);
+      
+      ctx.strokeStyle = '#818cf8';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(myPlayer.x, myPlayer.y, myPlayer.size, myPlayer.size);
+
+      requestAnimationFrame(drawFrame);
+    }
+    
+    // Initial sizes
+    resize();
+
+    /* --- THE BRIDGE OUTBOUND --- */
+    function emitMove() {
+      // Send the new local coordinates up to the React parent Window
+      const payload = {
+        type: 'MOVE',
+        x: myPlayer.x,
+        y: myPlayer.y
+      };
+      
+      // Post to parent React App
+      if (window.parent !== window) {
+        window.parent.postMessage(JSON.stringify(payload), '*');
+      }
+    }
+
+    // Input Handling
+    window.addEventListener('keydown', (e) => {
+      let moved = false;
+      if (e.key === 'ArrowUp' || e.key === 'w') { myPlayer.y -= myPlayer.speed; moved = true; }
+      if (e.key === 'ArrowDown' || e.key === 's') { myPlayer.y += myPlayer.speed; moved = true; }
+      if (e.key === 'ArrowLeft' || e.key === 'a') { myPlayer.x -= myPlayer.speed; moved = true; }
+      if (e.key === 'ArrowRight' || e.key === 'd') { myPlayer.x += myPlayer.speed; moved = true; }
+
+      if (moved) emitMove();
+    });
+
+    /* --- THE BRIDGE INBOUND --- */
+    window.addEventListener('message', (event) => {
+      // We parse the payload from React that came over WebRTC.
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'MOVE') {
+          // It's the opponent moving! Update their state so the canvas draws them there.
+          opponent.x = data.x;
+          opponent.y = data.y;
+        }
+      } catch (e) {
+        // Ignore non-JSON messages (like Vite hot-reload messages)
+      }
+    });
+  </script>
+</body>
+</html>
