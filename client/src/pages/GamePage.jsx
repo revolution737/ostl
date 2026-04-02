@@ -185,7 +185,7 @@ export function GamePage() {
                   <button onClick={() => { sessionStorage.removeItem('ostl_match_state'); navigate('/'); }} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
                     <Home size={18} /> Back To Home
                   </button>
-                  <button onClick={() => { sessionStorage.removeItem('ostl_match_state'); navigate('/matchmaking', { state: { gameId: location.state?.gameId || 'ostl_alpha', displayName }}); }} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
+                  <button onClick={() => { sessionStorage.removeItem('ostl_match_state'); navigate('/matchmaking', { state: { gameId: sessionContext?.gameId || 'dummy-game', displayName }}); }} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors">
                     <RefreshCw size={18} /> Play Again
                   </button>
                 </div>
@@ -197,13 +197,14 @@ export function GamePage() {
       <GameWrapper 
         roomId={roomId}
         isHost={isHost}
-        gamePath="/dummy-game/index.html"
+        gamePath={`/games/${sessionContext?.gameId || 'dummy-game'}/index.html`}
         onDisconnect={leaveMatch}
         status={status}
         messages={messages}
         sendMessage={sendMessage}
         isReconnecting={isReconnecting}
       />
+
 
       {/* RIGHT COLUMN: EXPANDED CHAT HUB */}
       <div className="flex-[1] flex flex-col min-w-[320px] max-w-[400px] h-full bg-slate-900 shadow-2xl relative z-20">

@@ -11,6 +11,7 @@ const {
   cancelDisconnectTimer
 } = require('./rooms')
 const { registerSignalingHandlers } = require('./signaling')
+const { recordMatchStart, logMatch } = require('./matchLog')
 
 function registerHandlers(io) {
   io.on('connection', (socket) => {
@@ -51,8 +52,9 @@ function registerHandlers(io) {
       if (match) {
         const { player1, p1Name, player2, p2Name, roomId } = match
 
-        // create room
+        // create room + record match start time for duration tracking
         createRoom(roomId, player1, player2, gameId)
+        recordMatchStart(roomId)
 
         // get sockets and join them to the Socket.IO room
         const s1 = getSocketId(player1)
@@ -86,6 +88,13 @@ function registerHandlers(io) {
     socket.on('match_ended', ({ roomId }) => {
       const uuid = getUuid(socket.id)
       console.log(`[server] match_ended from ${uuid} for room ${roomId}`)
+
+      // Log match to PostgreSQL before cleaning up
+      const room = getRoom(roomId)
+      if (room) {
+        logMatch(roomId, room.gameId, room.players[0], room.players[1], null)
+      }
+
       socket.to(roomId).emit('opponent_disconnected', { roomId })
       removeRoom(roomId)
     })

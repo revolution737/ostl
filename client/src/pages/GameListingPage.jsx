@@ -1,41 +1,38 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Gamepad2, Settings2, Video, VideoOff, Mic, MicOff, Play, X } from 'lucide-react';
 import { useSocket } from '../context/SocketProvider';
 
-const MOCK_GAMES = [
-  {
-    id: 'ostl_alpha',
-    title: 'Ostl Sandbox Engine',
-    description: 'The premier benchmark test for the Dumb Relay WebRTC data channels.',
-    players: 142,
-    image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=600&auto=format&fit=crop'
-  },
-  {
-    id: 'space_invaders_p2p',
-    title: 'Void Drifter',
-    description: 'A WASM-compiled deterministic physics shooter.',
-    players: 89,
-    image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=600&auto=format&fit=crop'
-  },
-  {
-    id: 'chess_gl',
-    title: 'Quantum Chess GL',
-    description: 'High stakes strategy with sub-10ms move verification.',
-    players: 315,
-    image: 'https://images.unsplash.com/photo-1580541832626-2a7131ee809f?q=80&w=600&auto=format&fit=crop'
-  }
-];
-
 const RANDOM_NAMES = ['Anonymous Hippo', 'Neon Tiger', 'Quantum Gecko', 'Ephemeral Hawk', 'Plasma Wolf'];
 
 export function GameListingPage() {
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedGame, setSelectedGame] = useState(null);
   const [displayName, setDisplayName] = useState('');
   
   const navigate = useNavigate();
   const { socket, isConnected } = useSocket();
+
+  useEffect(() => {
+    const fetchGames = async () => {
+      try {
+        const response = await fetch(import.meta.env.PROD ? '/api/games' : 'http://localhost:3000/api/games');
+        if (!response.ok) throw new Error('Failed to fetch game catalog');
+        const data = await response.json();
+        setGames(data.games);
+      } catch (err) {
+        console.error('Error fetching games:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGames();
+  }, []);
 
   const handlePlayNow = () => {
     if (!socket || !isConnected || !selectedGame) return;
@@ -44,11 +41,34 @@ export function GameListingPage() {
     
     navigate('/matchmaking', { 
       state: { 
-        gameId: selectedGame.id, 
+        gameId: selectedGame.slug, // Use slug as the unique ID
         displayName: finalName
       } 
     });
   };
+
+  if (loading) {
+    return (
+      <div className="w-full max-w-7xl mx-auto px-6 py-24 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-b-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-slate-400 font-medium">Synchronizing Catalog...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full max-w-7xl mx-auto px-6 py-24 flex flex-col items-center justify-center text-center">
+        <div className="text-rose-500 mb-4 p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20">
+          <p className="font-bold">Error Loading Hub</p>
+          <p className="text-sm opacity-80">{error}</p>
+        </div>
+        <button onClick={() => window.location.reload()} className="px-6 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-colors">
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-7xl mx-auto px-6 py-12">
@@ -58,7 +78,8 @@ export function GameListingPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {MOCK_GAMES.map((game) => (
+        {games.map((game) => (
+
           <motion.div
             key={game.id}
             layoutId={`card-${game.id}`}
