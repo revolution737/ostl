@@ -32,6 +32,12 @@ async function logMatch(roomId, gameSlug, player1Uuid, player2Uuid, winnerUuid =
   // Clean up
   matchStartTimes.delete(roomId)
 
+  // Skip DB write if no database is configured (avoids noisy errors in dev)
+  if (!process.env.DATABASE_URL) {
+    console.log(`[matchLog] No DATABASE_URL set — match ${roomId} not persisted (${durationMs}ms, game: ${gameSlug})`)
+    return
+  }
+
   try {
     await db.query(`
       INSERT INTO match_history (room_id, game_slug, player1_uuid, player2_uuid, started_at, ended_at, duration_ms, winner_uuid)

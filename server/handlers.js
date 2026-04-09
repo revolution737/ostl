@@ -41,14 +41,14 @@ function registerHandlers(io) {
     })
 
     // --- Matchmaking ---
-    socket.on('find_match', ({ gameId, displayName }) => {
+    socket.on('find_match', async ({ gameId, displayName }) => {
       const uuid = getUuid(socket.id)
       if (!uuid) {
         console.log(`[server] find_match: socket ${socket.id} not registered`)
         return
       }
 
-      const match = enqueue(gameId, uuid, displayName)
+      const match = await enqueue(gameId, uuid, displayName)
       if (match) {
         const { player1, p1Name, player2, p2Name, roomId } = match
 
@@ -74,10 +74,10 @@ function registerHandlers(io) {
       }
     })
 
-    socket.on('leave_queue', () => {
+    socket.on('leave_queue', async () => {
       const uuid = getUuid(socket.id)
       if (uuid) {
-        dequeue(uuid)
+        await dequeue(uuid)
       }
     })
 
@@ -100,12 +100,12 @@ function registerHandlers(io) {
     })
 
     // --- Disconnect ---
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       const uuid = getUuid(socket.id)
       console.log(`[server] socket disconnected: ${socket.id} (uuid: ${uuid})`)
 
       if (uuid) {
-        dequeue(uuid)
+        await dequeue(uuid)
 
         const roomInfo = getRoomByPlayer(uuid)
         if (roomInfo) {
