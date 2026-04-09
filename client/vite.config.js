@@ -32,11 +32,12 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/games': {
+      '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
       },
-      '/api': {
+      // Only proxy /games if there is something AFTER the slash (the actual assets)
+      '^/games/.+': {
         target: 'http://localhost:3000',
         changeOrigin: true
       }
