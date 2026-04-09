@@ -161,31 +161,36 @@
     }
 
     // ─── Game Loop ──────────────────────────────────────────
+    let lastTime = performance.now();
     let lastSend = 0;
 
-    function update() {
+    function update(dt) {
       if (!gameStarted) return;
+
+      // dt is in seconds, but our speeds were tuned for 60fps (1/60 = 0.0166)
+      // We'll multiply by (dt * 60) to keep the same feel
+      const scale = dt * 60;
 
       // Move local paddle
       if (touchY !== null) {
         const target = touchY - PADDLE_H / 2;
-        localPaddle.y += (target - localPaddle.y) * 0.2;
+        localPaddle.y += (target - localPaddle.y) * 0.2 * scale;
       } else {
-        if (keys['ArrowUp'] || keys['w'] || keys['W']) localPaddle.y -= PADDLE_SPEED;
-        if (keys['ArrowDown'] || keys['s'] || keys['S']) localPaddle.y += PADDLE_SPEED;
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) localPaddle.y -= PADDLE_SPEED * scale;
+        if (keys['ArrowDown'] || keys['s'] || keys['S']) localPaddle.y += PADDLE_SPEED * scale;
       }
       localPaddle.y = Math.max(0, Math.min(H - PADDLE_H, localPaddle.y));
 
       // Smooth remote paddle interpolation
       if (opponentData) {
-        remotePaddle.y += (opponentData.y - remotePaddle.y) * 0.3;
+        remotePaddle.y += (opponentData.y - remotePaddle.y) * 0.3 * scale;
       }
 
       // Ball physics
       if (isHost) {
         // HOST: full authority over ball
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+        ball.x += ball.vx * scale;
+        ball.y += ball.vy * scale;
 
         // Top/bottom bounce
         if (ball.y - BALL_R <= 0 || ball.y + BALL_R >= H) {
@@ -227,8 +232,8 @@
         }
       } else {
         // GUEST: local prediction using velocity + smooth correction from host
-        ball.x += ball.vx;
-        ball.y += ball.vy;
+        ball.x += ball.vx * scale;
+        ball.y += ball.vy * scale;
 
         // Top/bottom bounce (local prediction)
         if (ball.y - BALL_R <= 0 || ball.y + BALL_R >= H) {
@@ -238,8 +243,8 @@
 
         // Smoothly correct toward host's authoritative position
         if (ball.targetX !== undefined) {
-          ball.x += (ball.targetX - ball.x) * 0.15;
-          ball.y += (ball.targetY - ball.y) * 0.15;
+          ball.x += (ball.targetX - ball.x) * 0.15 * scale;
+          ball.y += (ball.targetY - ball.y) * 0.15 * scale;
         }
       }
 
@@ -361,12 +366,21 @@
     }
 
     // ─── Main Loop ──────────────────────────────────────────
-    function loop() {
-      update();
+    function loop(currentTime) {
+      const dt = (currentTime - lastTime) / 1000; // in seconds
+      lastTime = currentTime;
+
+      // Limit dt to avoid huge jumps on tab switch/lag
+      const clampedDt = Math.min(dt, 0.1); 
+
+      update(clampedDt);
       draw();
       requestAnimationFrame(loop);
     }
-    loop();
+    requestAnimationFrame((t) => {
+      lastTime = t;
+      requestAnimationFrame(loop);
+    });
   </script>
 </body>
 </html>
