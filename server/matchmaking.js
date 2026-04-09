@@ -146,4 +146,16 @@ async function dequeue(uuid) {
   return memDequeue(uuid)
 }
 
-module.exports = { enqueue, dequeue }
+/**
+ * Diagnostic — returns a snapshot of all in-memory queues.
+ * When Redis is the backend, this only returns the mem fallback (may be empty).
+ */
+function getQueues() {
+  const result = {}
+  for (const [gameId, queue] of memQueues) {
+    result[gameId] = queue.map(p => ({ uuid: p.uuid, displayName: p.displayName }))
+  }
+  return result
+}
+
+module.exports = { enqueue, dequeue, getQueues }

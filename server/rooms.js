@@ -79,6 +79,14 @@ function cancelDisconnectTimer(uuid) {
   return null
 }
 
+function getActiveRooms() {
+  const result = []
+  for (const [roomId, room] of rooms) {
+    result.push({ roomId, ...room })
+  }
+  return result
+}
+
 module.exports = {
   createRoom,
   getRoom,
@@ -86,5 +94,6 @@ module.exports = {
   getOpponentUuid,
   removeRoom,
   startDisconnectTimer,
-  cancelDisconnectTimer
+  cancelDisconnectTimer,
+  getActiveRooms
 }

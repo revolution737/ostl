@@ -33,4 +33,12 @@ function getUuid(socketId) {
   return socketIdToUuid.get(socketId)
 }
 
-module.exports = { registerPlayer, unregisterPlayer, getSocketId, getUuid }
+function getRegisteredPlayers() {
+  const result = []
+  for (const [socketId, uuid] of socketIdToUuid) {
+    result.push({ socketId, uuid })
+  }
+  return result
+}
+
+module.exports = { registerPlayer, unregisterPlayer, getSocketId, getUuid, getRegisteredPlayers }
