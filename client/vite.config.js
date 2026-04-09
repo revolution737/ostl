@@ -29,5 +29,17 @@ export default defineConfig({
         });
       }
     }
-  ]
+  ],
+  server: {
+    proxy: {
+      '/games': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      }
+    }
+  }
 })

@@ -11,6 +11,7 @@ const path = require('path')
 const fs = require('fs')
 const crypto = require('crypto')
 const db = require('../db/pool')
+const supabase = require('../services/supabaseService')
 
 const router = express.Router()
 
@@ -193,6 +194,10 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
       return res.status(400).json({ error: 'Extracted ZIP does not contain index.html at root' })
     }
 
+    // Upload extracted files to Supabase Storage
+    console.log(`[api] Syncing "${slug}" to Supabase bucket: ${supabase.BUCKET_NAME}...`)
+    const playUrl = await supabase.uploadDirectory(targetDir, `games/${slug}`)
+
     // Insert into database
     const { rows } = await db.query(`
       INSERT INTO game_catalog (slug, title, description, thumbnail_url)
@@ -200,12 +205,12 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
       RETURNING *
     `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim()])
 
-    console.log(`[api] Published game: "${title}" → /games/${slug}/`)
+    console.log(`[api] Published game: "${title}" → ${playUrl}`)
 
     res.status(201).json({
       message: 'Game published successfully',
       game: rows[0],
-      playUrl: `/games/${slug}/index.html`
+      playUrl
     })
   } catch (err) {
     console.error('[api] POST /api/games error:', err.message)
@@ -217,5 +222,8 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
     }
   }
 })
+
+// ─── Alias for Platform Lead ──────────────────────────────
+router.post('/publish', (req, res, next) => router.handle(req, res, next))
 
 module.exports = router

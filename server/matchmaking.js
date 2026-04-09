@@ -53,4 +53,12 @@ function dequeue(uuid) {
   }
 }
 
-module.exports = { enqueue, dequeue }
+function getQueues() {
+  const result = {}
+  for (const [gameId, queue] of queues) {
+    result[gameId] = queue.map(p => ({ uuid: p.uuid, displayName: p.displayName }))
+  }
+  return result
+}
+
+module.exports = { enqueue, dequeue, getQueues }

@@ -7,6 +7,9 @@ const { registerHandlers } = require('./handlers')
 const { testConnection } = require('./db/pool')
 const { createGameServingMiddleware } = require('./middleware/gameServing')
 const gamesRouter = require('./routes/games')
+const { getQueues } = require('./matchmaking')
+const { getRegisteredPlayers } = require('./players')
+const { getActiveRooms } = require('./rooms')
 
 const app = express()
 
@@ -25,6 +28,15 @@ app.use('/api', (req, res, next) => {
 
 // ─── REST API ────────────────────────────────────────────
 app.use('/api/games', gamesRouter)
+
+// ─── Debug Endpoint ──────────────────────────────────────
+app.get('/api/debug', (req, res) => {
+  res.json({
+    players: getRegisteredPlayers(),
+    queues: getQueues(),
+    rooms: getActiveRooms()
+  })
+})
 
 // ─── Game Serving (uploaded + legacy games) ──────────────
 app.use(createGameServingMiddleware())
