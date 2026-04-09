@@ -3,8 +3,10 @@ const express = require('express')
 const http = require('http')
 const path = require('path')
 const { Server } = require('socket.io')
+const { createAdapter } = require('@socket.io/redis-adapter')
 const { registerHandlers } = require('./handlers')
 const { testConnection } = require('./db/pool')
+const { pubClient, subClient, testRedisConnection } = require('./redis')
 const { createGameServingMiddleware } = require('./middleware/gameServing')
 const gamesRouter = require('./routes/games')
 
@@ -47,11 +49,22 @@ registerHandlers(io)
 const PORT = process.env.PORT || 3000
 
 async function start() {
+  // Test Redis connection — if available, wire up the adapter so Socket.IO
+  // works correctly across multiple server instances (horizontal scaling)
+  const redisOk = await testRedisConnection()
+  if (redisOk) {
+    io.adapter(createAdapter(pubClient, subClient))
+    console.log('[server] Socket.IO → Redis adapter active (multi-instance ready)')
+  } else {
+    console.warn('[server] ⚠ Running WITHOUT Redis — using in-memory queues (single instance only).')
+    console.warn('[server]   Set REDIS_URL in .env to enable persistent queues and horizontal scaling.')
+  }
+
   // Test DB connection (non-blocking — server starts even if DB is down)
   const dbOk = await testConnection()
   if (!dbOk) {
-    console.warn('[server] ⚠ Running WITHOUT database — API routes will fail.')
-    console.warn('[server]   Set DATABASE_URL in .env and run db/schema.sql')
+    console.warn('[server] ⚠ Running WITHOUT database — match history will not be persisted.')
+    console.warn('[server]   Set DATABASE_URL in .env and run db/schema.sql to enable logging.')
   }
 
   server.listen(PORT, () => {
