@@ -97,7 +97,7 @@ func _on_opponent_data(data: Dictionary):
 
 2. **Upload via the API** (or the creator portal when available):
    ```bash
-   curl -X POST http://localhost:3000/api/games \
+   curl -X POST http://localhost:3000/api/publish \
      -F "gameZip=@my-game.zip" \
      -F "title=My Awesome Game" \
      -F "description=A fast-paced 1v1 battle game" \
