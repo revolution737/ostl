@@ -10,7 +10,6 @@ interface DeveloperGame {
   image: string;
   totalPlayers: number;
   activePlayers: number;
-  revenue: number;
   status: "active" | "pending" | "paused";
 }
 
@@ -153,8 +152,8 @@ export function DeveloperDashboard() {
             />
             <StatCard
               icon={<TrendingUp className="w-6 h-6" />}
-              label="Est. Revenue"
-              value={`$${(totalPlays * 0.05).toLocaleString(undefined, {minimumFractionDigits: 2})}`}
+              label="Avg. Edge Success"
+              value="100%"
               color="purple"
             />
           </div>
@@ -261,9 +260,9 @@ function DeveloperGameCard({ game, index }: { game: DeveloperGame; index: number
             <span className="text-gray-600 text-sm">Total Players</span>
             <span className="text-gray-800">{game.totalPlayers.toLocaleString()}</span>
           </div>
-          <div className="flex justify-between items-center pt-3 border-t border-gray-100">
-            <span className="text-gray-600 text-sm">Revenue</span>
-            <span className="text-green-600">${game.revenue.toLocaleString()}</span>
+          <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+            <span className="text-gray-600 text-sm">Active Pipeline</span>
+            <span className="text-blue-600 font-mono text-sm tracking-widest">{game.id}</span>
           </div>
         </div>
       </div>

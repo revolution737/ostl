@@ -9,6 +9,8 @@ import { MatchFindingPage } from './pages/MatchFindingPage';
 import { GamePage } from './pages/GamePage';
 import { ThemeProvider } from 'next-themes';
 
+import { DeveloperAnalyticsPage } from './pages/DeveloperAnalyticsPage';
+
 function MainApp() {
   return (
     <div className="w-full min-h-screen bg-slate-950 flex flex-col relative overflow-x-hidden selection:bg-indigo-500/30">
@@ -18,6 +20,7 @@ function MainApp() {
           <Route path="/developers" element={<DeveloperAuthPage />} />
           <Route path="/developers/dashboard" element={<DeveloperDashboard />} />
           <Route path="/developers/upload" element={<DeveloperUploadPage />} />
+          <Route path="/developers/analytics/:gameId" element={<DeveloperAnalyticsPage />} />
           <Route path="/games" element={<GameListingPage />} />
           <Route path="/matchmaking/:gameId" element={<MatchFindingPage />} />
           <Route path="/play" element={<GamePage />} />

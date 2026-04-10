@@ -284,7 +284,99 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
   }
 })
 
+// ─── PUT /api/games/:slug ────────────────────────────────
+// Overwrites an existing game payload natively
+router.put('/:slug', upload.single('gameZip'), async (req, res) => {
+  const tmpPath = req.file?.path;
+  const { slug } = req.params;
+  const { developer_id } = req.body;
+
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No update payload detected. Send a .zip as "gameZip"' });
+    }
+    
+    if (!developer_id) {
+      return res.status(401).json({ error: 'Unauthorized: developer reference missing' });
+    }
+
+    // Verify ownership
+    const { rows: existing } = await db.query(
+      'SELECT id FROM game_catalog WHERE slug = $1 AND developer_id = $2', 
+      [slug, developer_id]
+    );
+
+    if (existing.length === 0) {
+      return res.status(403).json({ error: 'Permission denied: Game ownership mapping failed' });
+    }
+
+    // Pipeline Extraction
+    const { entries, zip } = validateZipContents(tmpPath);
+    const targetDir = path.join(UPLOADS_DIR, slug);
+    
+    // Purge legacy structure
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+    }
+    
+    extractZip(zip, entries, targetDir);
+
+    if (!fs.existsSync(path.join(targetDir, 'index.html'))) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      return res.status(400).json({ error: 'Update rejected: Missing index.html at root layer' });
+    }
+
+    // Synchronize to Supabase Edge
+    console.log(`[api] Pushing Update for "${slug}" to Supabase bucket: ${supabase.BUCKET_NAME}...`);
+    await supabase.uploadDirectory(targetDir, `games/${slug}`);
+
+    res.status(200).json({ message: 'Game successfully updated across server instances' });
+
+  } catch (err) {
+    console.error(`[api] PUT /api/games/${slug} error:`, err.message);
+    res.status(400).json({ error: err.message });
+  } finally {
+    if (tmpPath && fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+  }
+});
+
+// ─── DELETE /api/games/:slug ─────────────────────────────
+// Removes a game comprehensively from the platform catalogue
+router.delete('/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const { developer_id } = req.body;
+
+  try {
+    if (!developer_id) {
+      return res.status(401).json({ error: 'Unauthorized: developer verification missing' });
+    }
+
+    // Verify ownership and wipe metadata mapping simultaneously
+    const { rowCount } = await db.query(
+      'DELETE FROM game_catalog WHERE slug = $1 AND developer_id = $2 RETURNING id',
+      [slug, developer_id]
+    );
+
+    if (rowCount === 0) {
+      return res.status(403).json({ error: 'Deletion prevented: Invalid ownership or model does not exist' });
+    }
+
+    // Terminate Local Engine Cache
+    const targetDir = path.join(UPLOADS_DIR, slug);
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+    }
+
+    console.log(`[api] Purged Data Node for "${slug}" Successfully.`);
+    res.status(200).json({ message: 'Catalog Entity Removed Successfully' });
+
+  } catch (err) {
+    console.error(`[api] DELETE /api/games/${slug} Fatal Drop Error:`, err.message);
+    res.status(500).json({ error: 'Failed to purge entity' });
+  }
+});
+
 // ─── Alias for Platform Lead ──────────────────────────────
 router.post('/publish', (req, res, next) => router.handle(req, res, next))
 
-module.exports = router
+module.exports = router;
