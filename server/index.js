@@ -19,6 +19,9 @@ const app = express()
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+// Serve game assets from the uploads folder
+app.use('/games', express.static(path.join(__dirname, 'uploads/games')))
+
 // CORS headers for API routes (the client runs on a different port in dev)
 app.use('/api', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
