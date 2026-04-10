@@ -50,6 +50,7 @@ subClient.on('error', (err) => {
 async function testRedisConnection() {
   try {
     await pubClient.connect()
+    await subClient.connect()
     await pubClient.ping()
     console.log('[redis] Connected successfully')
     return true
