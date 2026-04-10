@@ -55,7 +55,12 @@ app.use(express.static(clientDistPath));
 
 // SPA Fallback: Any unknown GET request (not an API) goes to React Router
 app.get('*', (req, res) => {
-  res.sendFile(path.join(clientDistPath, 'index.html'));
+  res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
+    if (err) {
+      console.error('[server] SPA fallback sendFile error:', err);
+      if (!res.headersSent) res.status(500).send('Internal Server Error: Unable to serve index.html');
+    }
+  });
 });
 
 // ─── Socket.IO ───────────────────────────────────────────

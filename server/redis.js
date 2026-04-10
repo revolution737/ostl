@@ -37,6 +37,12 @@ function createClient() {
 const pubClient = createClient()
 const subClient = pubClient.duplicate()
 
+subClient.on('error', (err) => {
+  if (err.code !== 'ECONNREFUSED') {
+    console.error('[redis] Unexpected subClient error:', err.message)
+  }
+})
+
 /**
  * Try to connect and verify Redis is reachable.
  * Returns true if successful, false otherwise.
