@@ -69,21 +69,19 @@
         if (data.type === 'MOVE') {
           opponentData = data;
         } else if (data.type === 'BALL') {
-          // Guest: receive authoritative ball state from host and
-          // use velocity for local prediction between updates
+          // Non-host receives ball state from host
           if (!isHost) {
+            ball.x = data.x;
+            ball.y = data.y;
             ball.vx = data.vx;
             ball.vy = data.vy;
-            // Smoothly correct position (lerp toward authority)
-            ball.targetX = data.x;
-            ball.targetY = data.y;
           }
         } else if (data.type === 'SCORE') {
           scores.left = data.left;
           scores.right = data.right;
         } else if (data.type === 'START') {
           gameStarted = true;
-          isHost = !!data.isHost;
+          isHost = data.youAreHost === false; // If they say we're not host, we're not
           document.getElementById('waiting').style.display = 'none';
         }
       } catch (e) {}
@@ -120,7 +118,7 @@
     // ─── Game State ─────────────────────────────────────────
     const localPaddle = { y: H / 2 - PADDLE_H / 2 };
     const remotePaddle = { y: H / 2 - PADDLE_H / 2 };
-    const ball = { x: W / 2, y: H / 2, vx: BALL_SPEED, vy: BALL_SPEED * 0.6, targetX: W/2, targetY: H/2 };
+    const ball = { x: W / 2, y: H / 2, vx: BALL_SPEED, vy: BALL_SPEED * 0.6 };
     const scores = { left: 0, right: 0 };
 
     const keys = {};
@@ -144,53 +142,50 @@
 
     // ─── Auto-start for standalone testing ──────────────────
     if (!isEmbedded) {
+      // If running standalone (not in iframe), start immediately
       setTimeout(() => {
         gameStarted = true;
         isHost = true;
         document.getElementById('waiting').style.display = 'none';
       }, 500);
     } else {
+      // Signal to parent that we're ready
       sendToOpponent({ type: 'READY' });
+      // Auto-start after a short delay (the wrapper handles START)
       setTimeout(() => {
         if (!gameStarted) {
           gameStarted = true;
-          isHost = true;
+          isHost = true; // Default to host if no START received
           document.getElementById('waiting').style.display = 'none';
         }
       }, 3000);
     }
 
     // ─── Game Loop ──────────────────────────────────────────
-    let lastTime = performance.now();
     let lastSend = 0;
 
-    function update(dt) {
+    function update() {
       if (!gameStarted) return;
-
-      // dt is in seconds, but our speeds were tuned for 60fps (1/60 = 0.0166)
-      // We'll multiply by (dt * 60) to keep the same feel
-      const scale = dt * 60;
 
       // Move local paddle
       if (touchY !== null) {
         const target = touchY - PADDLE_H / 2;
-        localPaddle.y += (target - localPaddle.y) * 0.2 * scale;
+        localPaddle.y += (target - localPaddle.y) * 0.2;
       } else {
-        if (keys['ArrowUp'] || keys['w'] || keys['W']) localPaddle.y -= PADDLE_SPEED * scale;
-        if (keys['ArrowDown'] || keys['s'] || keys['S']) localPaddle.y += PADDLE_SPEED * scale;
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) localPaddle.y -= PADDLE_SPEED;
+        if (keys['ArrowDown'] || keys['s'] || keys['S']) localPaddle.y += PADDLE_SPEED;
       }
       localPaddle.y = Math.max(0, Math.min(H - PADDLE_H, localPaddle.y));
 
-      // Smooth remote paddle interpolation
+      // Update remote paddle from opponent data
       if (opponentData) {
-        remotePaddle.y += (opponentData.y - remotePaddle.y) * 0.3 * scale;
+        remotePaddle.y = opponentData.y;
       }
 
-      // Ball physics
+      // Ball physics (host only)
       if (isHost) {
-        // HOST: full authority over ball
-        ball.x += ball.vx * scale;
-        ball.y += ball.vy * scale;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
 
         // Top/bottom bounce
         if (ball.y - BALL_R <= 0 || ball.y + BALL_R >= H) {
@@ -198,7 +193,7 @@
           ball.y = Math.max(BALL_R, Math.min(H - BALL_R, ball.y));
         }
 
-        // Left paddle collision
+        // Left paddle collision (local paddle for host)
         const lp = localPaddle;
         if (ball.x - BALL_R <= 30 + PADDLE_W &&
             ball.x - BALL_R >= 30 &&
@@ -206,10 +201,10 @@
           ball.vx = Math.abs(ball.vx);
           const hit = (ball.y - (lp.y + PADDLE_H / 2)) / (PADDLE_H / 2);
           ball.vy = hit * BALL_SPEED;
-          ball.vx *= 1.02;
+          ball.vx *= 1.02; // Slight speed increase
         }
 
-        // Right paddle collision
+        // Right paddle collision (remote paddle for host)
         const rp = remotePaddle;
         if (ball.x + BALL_R >= W - 30 - PADDLE_W &&
             ball.x + BALL_R <= W - 30 &&
@@ -230,17 +225,9 @@
           resetBall();
           sendToOpponent({ type: 'SCORE', left: scores.left, right: scores.right });
         }
-      } else {
-        // GUEST: No local prediction. Purely follow the Host's lead to prevent jitter.
-        if (ball.targetX !== undefined) {
-          // Swiftly follow the host with a slight lerp for smoothness
-          ball.vx = 0; ball.vy = 0; // stop local physics
-          ball.x += (ball.targetX - ball.x) * 0.4 * scale;
-          ball.y += (ball.targetY - ball.y) * 0.4 * scale;
-        }
       }
 
-      // Send data (~30fps)
+      // Send local paddle position (~30fps)
       const now = Date.now();
       if (now - lastSend > 33) {
         sendToOpponent({ type: 'MOVE', y: localPaddle.y });
@@ -358,21 +345,12 @@
     }
 
     // ─── Main Loop ──────────────────────────────────────────
-    function loop(currentTime) {
-      const dt = (currentTime - lastTime) / 1000; // in seconds
-      lastTime = currentTime;
-
-      // Limit dt to avoid huge jumps on tab switch/lag
-      const clampedDt = Math.min(dt, 0.1); 
-
-      update(clampedDt);
+    function loop() {
+      update();
       draw();
       requestAnimationFrame(loop);
     }
-    requestAnimationFrame((t) => {
-      lastTime = t;
-      requestAnimationFrame(loop);
-    });
+    loop();
   </script>
 </body>
 </html>

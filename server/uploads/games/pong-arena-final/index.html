@@ -83,7 +83,7 @@
           scores.right = data.right;
         } else if (data.type === 'START') {
           gameStarted = true;
-          isHost = !!data.isHost;
+          isHost = data.youAreHost === false;
           document.getElementById('waiting').style.display = 'none';
         }
       } catch (e) {}
@@ -231,12 +231,20 @@
           sendToOpponent({ type: 'SCORE', left: scores.left, right: scores.right });
         }
       } else {
-        // GUEST: No local prediction. Purely follow the Host's lead to prevent jitter.
+        // GUEST: local prediction using velocity + smooth correction from host
+        ball.x += ball.vx * scale;
+        ball.y += ball.vy * scale;
+
+        // Top/bottom bounce (local prediction)
+        if (ball.y - BALL_R <= 0 || ball.y + BALL_R >= H) {
+          ball.vy *= -1;
+          ball.y = Math.max(BALL_R, Math.min(H - BALL_R, ball.y));
+        }
+
+        // Smoothly correct toward host's authoritative position
         if (ball.targetX !== undefined) {
-          // Swiftly follow the host with a slight lerp for smoothness
-          ball.vx = 0; ball.vy = 0; // stop local physics
-          ball.x += (ball.targetX - ball.x) * 0.4 * scale;
-          ball.y += (ball.targetY - ball.y) * 0.4 * scale;
+          ball.x += (ball.targetX - ball.x) * 0.15 * scale;
+          ball.y += (ball.targetY - ball.y) * 0.15 * scale;
         }
       }
 

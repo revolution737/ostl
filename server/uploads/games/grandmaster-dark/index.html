@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grandmaster Dark — ostl.</title>
+  <style>
+    :root {
+      --bg: #0a0a0d;
+      --board-light: #1f1f2e;
+      --board-dark: #0f0f15;
+      --accent: #d4af37;
+      --accent-glow: rgba(212, 175, 55, 0.4);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: #ccc;
+      font-family: 'Times New Roman', serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #header {
+      width: 100%;
+      height: 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 40px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      position: absolute;
+      top: 0;
+    }
+
+    h1 {
+      font-size: 14px;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 300;
+    }
+
+    .turn-indicator {
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 5px 15px;
+      border: 1px solid var(--accent);
+      border-radius: 2px;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 60px);
+      grid-template-rows: repeat(8, 60px);
+      border: 10px solid #1a1a20;
+      box-shadow: 0 0 50px rgba(0,0,0,0.5);
+    }
+
+    .square {
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .square.light { background: var(--board-light); }
+    .square.dark { background: var(--board-dark); }
+    .square.selected { background: var(--accent-glow) !important; }
+    .square.last-move { box-shadow: inset 0 0 15px var(--accent-glow); }
+
+    .piece {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      transition: transform 0.2s;
+    }
+
+    .piece.white { color: #f0f0f0; filter: drop-shadow(0 0 2px black); }
+    .piece.black { color: #666; filter: drop-shadow(0 0 5px var(--accent-glow)); }
+
+    #waiting {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100;
+      transition: opacity 0.5s;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="waiting">
+    <h1 style="margin-bottom: 20px;">Synchronizing Board...</h1>
+    <div style="width: 200px; hieght: 1px; background: #333; position:relative;">
+        <div id="loader" style="position:absolute; height:100%; background: var(--accent); width: 0%; transition: width 3s;"></div>
+    </div>
+  </div>
+
+  <div id="header">
+    <h1>Ostl. Chess</h1>
+    <div class="turn-indicator" id="turn">Waiting for players...</div>
+  </div>
+
+  <div id="board"></div>
+
+  <script>
+    // ─── Bridge ──────────────────────────────────────────────
+    const isEmbedded = window.parent !== window;
+    function send(data) {
+      if (isEmbedded) window.parent.postMessage(JSON.stringify(data), '*');
+    }
+
+    let isHost = false; // Host is White
+    let myColor = 'white';
+    let myTurn = false;
+    let selectedSquare = null;
+
+    const PIECES = {
+      'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+      'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+    };
+
+    let boardState = [
+      ['r','n','b','q','k','b','n','r'],
+      ['p','p','p','p','p','p','p','p'],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['P','P','P','P','P','P','P','P'],
+      ['R','N','B','Q','K','B','N','R']
+    ];
+
+    function initBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const square = document.createElement('div');
+          square.className = `square ${(r + c) % 2 === 0 ? 'light' : 'dark'}`;
+          square.id = `s-${r}-${c}`;
+          square.onclick = () => handleSquareClick(r, c);
+          
+          const piece = boardState[r][c];
+          if (piece) {
+            const pieceDiv = document.createElement('div');
+            pieceDiv.className = `piece ${piece === piece.toUpperCase() ? 'white' : 'black'}`;
+            pieceDiv.innerText = PIECES[piece.toLowerCase()];
+            square.appendChild(pieceDiv);
+          }
+          board.appendChild(square);
+        }
+      }
+    }
+
+    function handleSquareClick(r, c) {
+      if (!myTurn) return;
+
+      const piece = boardState[r][c];
+      const isMyPiece = piece && (myColor === 'white' ? piece === piece.toUpperCase() : piece === piece.toLowerCase());
+
+      if (selectedSquare) {
+        // Carry out move
+        const prev = selectedSquare;
+        if (prev.r === r && prev.c === c) {
+          selectedSquare = null;
+          renderBoard();
+          return;
+        }
+
+        // Simple move logic (no validation for this proof of concept)
+        const movingPiece = boardState[prev.r][prev.c];
+        boardState[r][c] = movingPiece;
+        boardState[prev.r][prev.c] = '';
+        
+        send({ type: 'MOVE', from: prev, to: {r, c} });
+        
+        selectedSquare = null;
+        myTurn = false;
+        renderBoard();
+        updateUI();
+      } else if (isMyPiece) {
+        selectedSquare = {r, c};
+        renderBoard();
+      }
+    }
+
+    function renderBoard() {
+      initBoard();
+      if (selectedSquare) {
+        document.getElementById(`s-${selectedSquare.r}-${selectedSquare.c}`).classList.add('selected');
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+
+      if (data.type === 'START') {
+        isHost = !data.youAreHost; 
+        myColor = isHost ? 'white' : 'black';
+        myTurn = isHost;
+        document.getElementById('waiting').style.display = 'none';
+        updateUI();
+        renderBoard();
+      }
+
+      if (data.type === 'MOVE') {
+        const { from, to } = data;
+        boardState[to.r][to.c] = boardState[from.r][from.c];
+        boardState[from.r][from.c] = '';
+        myTurn = true;
+        updateUI();
+        renderBoard();
+        
+        // Mark last move
+        document.getElementById(`s-${from.r}-${from.c}`).classList.add('last-move');
+        document.getElementById(`s-${to.r}-${to.c}`).classList.add('last-move');
+      }
+    });
+
+    function updateUI() {
+      const status = document.getElementById('turn');
+      status.innerText = myTurn ? "YOUR TURN" : "WAITING FOR OPPONENT";
+      status.style.borderColor = myTurn ? 'var(--accent)' : '#333';
+      status.style.color = myTurn ? 'var(--accent)' : '#666';
+    }
+
+    initBoard();
+    if (isEmbedded) send({ type: 'READY' });
+    else {
+        document.getElementById('waiting').style.display = 'none';
+        myTurn = true;
+        updateUI();
+    }
+  </script>
+</body>
+</html>
