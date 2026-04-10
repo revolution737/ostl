@@ -49,8 +49,14 @@ app.get('/api/debug', (req, res) => {
 // ─── Game Serving (uploaded + legacy games) ──────────────
 app.use(createGameServingMiddleware())
 
-// ─── Dev Test Harness ────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')))
+// ─── Frontend Serving (React App) ──────────────────────────
+const clientDistPath = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDistPath));
+
+// SPA Fallback: Any unknown GET request (not an API) goes to React Router
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientDistPath, 'index.html'));
+});
 
 // ─── Socket.IO ───────────────────────────────────────────
 const server = http.createServer(app)
