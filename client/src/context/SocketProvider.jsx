@@ -24,10 +24,12 @@ export const SocketProvider = ({ children }) => {
     setUuid(storedUuid);
 
     // 2. Initialize Socket.IO connection
-    // Use the current hostname so LAN devices connect to the right server
-    const serverUrl = import.meta.env.PROD
-      ? '/'
-      : `${window.location.protocol}//${window.location.hostname}:3000`;
+    // Prioritize external API URL if defined (e.g. Vercel pointing to Railway backend), otherwise use same origin
+    const serverUrl = import.meta.env.VITE_API_URL 
+      ? import.meta.env.VITE_API_URL 
+      : import.meta.env.PROD
+        ? '/'
+        : `${window.location.protocol}//${window.location.hostname}:3000`;
 
     const socketInstance = io(serverUrl, {
        transports: ['websocket', 'polling'],

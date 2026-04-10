@@ -9,9 +9,10 @@ export function useMetrics() {
   useEffect(() => {
     async function fetchData() {
       try {
+        const apiBase = import.meta.env.VITE_API_URL || '';
         const [gamesRes, debugRes] = await Promise.all([
-          fetch("/api/games").then((res) => res.json()),
-          fetch("/api/debug").then((res) => res.json()),
+          fetch(`${apiBase}/api/games`).then((res) => res.json()),
+          fetch(`${apiBase}/api/debug`).then((res) => res.json()),
         ]);
 
         const debugData = debugRes;
