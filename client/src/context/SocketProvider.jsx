@@ -24,9 +24,9 @@ export const SocketProvider = ({ children }) => {
     setUuid(storedUuid);
 
     // 2. Initialize Socket.IO connection
-    // Use the current hostname so LAN devices connect to the right server
+    // In production, point to the Railway backend via env var
     const serverUrl = import.meta.env.PROD
-      ? '/'
+      ? import.meta.env.VITE_SERVER_URL
       : `${window.location.protocol}//${window.location.hostname}:3000`;
 
     const socketInstance = io(serverUrl, {
