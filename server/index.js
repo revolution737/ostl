@@ -54,7 +54,8 @@ const clientDistPath = path.join(__dirname, '../client/dist');
 app.use(express.static(clientDistPath));
 
 // SPA Fallback: Any unknown GET request (not an API) goes to React Router
-app.get('*', (req, res) => {
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
   res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
     if (err) {
       console.error('[server] SPA fallback sendFile error:', err);
