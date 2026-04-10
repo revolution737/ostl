@@ -163,7 +163,12 @@ export function GamePage() {
 
   if (!roomId) return null;
 
-  const gamePath = sessionContext?.playUrl || `/games/${sessionContext?.gameId || 'dummy-game'}/index.html`;
+  let gamePath = sessionContext?.playUrl || `/games/${sessionContext?.gameId || 'dummy-game'}/index.html`;
+
+  // Hotfix: Overwrite legacy direct Supabase URLs mapped in session storage to force usage of the backend proxy (bypasses raw HTML rendering)
+  if (gamePath.includes('.supabase.co') || gamePath.includes('/storage/v1/object/public/')) {
+    gamePath = `/api/games/${sessionContext?.gameId || 'dummy-game'}/play/index.html?v=${Date.now()}`;
+  }
 
   return (
     <div className="h-screen bg-gray-50 dark:bg-black flex flex-col overflow-hidden font-sans">

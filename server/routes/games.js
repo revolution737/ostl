@@ -15,7 +15,7 @@ const supabase = require('../services/supabaseService')
 const BUCKET_NAME = supabase.BUCKET_NAME || 'game-assets';
 
 const getPlayUrl = (slug) => {
-  return `${process.env.SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/games/${slug}/index.html`;
+  return `/api/games/${slug}/play/index.html?v=${Date.now()}`;
 };
 
 const router = express.Router()
@@ -183,6 +183,42 @@ router.get('/:slug', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch game' })
   }
 })
+// ─── GET /api/games/:slug/play/* ───────────────────────────
+// Acts as an explicit edge proxy to Supabase Storage.
+// By default, Supabase Storage returns Public HTML payloads as text/plain with nosniff Sandbox headers, which inherently breaks game iframe mountings.
+router.use('/:slug/play', async (req, res) => {
+  const { slug } = req.params;
+  const assetPath = req.path.replace(/^\//, '') || 'index.html';
+  
+  const baseUrl = process.env.SUPABASE_URL || 'https://ukkqwldxrgvklhlhggwq.supabase.co';
+  const supabaseUrl = `${baseUrl}/storage/v1/object/public/${BUCKET_NAME}/games/${slug}/${assetPath}`;
+  
+  try {
+    const fetchRes = await fetch(supabaseUrl);
+    if (!fetchRes.ok) {
+       return res.status(fetchRes.status).send(`Asset not found: ${assetPath}`);
+    }
+
+    const buffer = await fetchRes.arrayBuffer();
+    const mimeLib = require('mime-types');
+    let dynamicMime = mimeLib.lookup(assetPath) || fetchRes.headers.get('content-type') || 'application/octet-stream';
+    
+    // Explicit Override Constraints
+    if (assetPath.endsWith('.html')) dynamicMime = 'text/html; charset=utf-8';
+    else if (assetPath.endsWith('.css')) dynamicMime = 'text/css; charset=utf-8';
+    else if (assetPath.endsWith('.js')) dynamicMime = 'application/javascript; charset=utf-8';
+    
+    res.setHeader('Content-Type', dynamicMime);
+    
+    // Allow iframes (overrides X-Frame-Options if present)
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.send(Buffer.from(buffer));
+
+  } catch (err) {
+    console.error(`[proxy] Error loading ${assetPath}:`, err.message);
+    res.status(500).send('Storage proxy failure');
+  }
+});
 
 // ─── POST /api/games ─────────────────────────────────────
 
