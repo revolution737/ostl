@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinite Neon Tic-Tac-Toe</title>
+  <style>
+    :root { --cyan: #00e5ff; --pink: #ff4081; --bg: #0a0a1a; --grid: rgba(100, 120, 255, 0.2); }
+    body { margin:0; padding:0; background:var(--bg); color:white; font-family:'Courier New',monospace; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; }
+    #game-container { position:relative; width:400px; height:400px; }
+    canvas { border:1px solid var(--grid); box-shadow:0 0 20px rgba(0,0,0,0.5); cursor:pointer; }
+    #ui { position:absolute; top:-60px; width:100%; text-align:center; text-transform:uppercase; letter-spacing:4px; font-size:14px; font-weight:bold; }
+    .status-cyan { color:var(--cyan); text-shadow:0 0 10px var(--cyan); }
+    .status-pink { color:var(--pink); text-shadow:0 0 10px var(--pink); }
+    .status-waiting { color:#555; }
+    #waiting { position:fixed; inset:0; background:rgba(10,10,26,0.9); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; text-transform:uppercase; letter-spacing:2px; }
+    .spinner { width:40px; height:40px; border:3px solid rgba(0,229,255,0.2); border-top-color:var(--cyan); border-radius:50%; animation:spin 1s linear infinite; margin-bottom:20px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="waiting"><div class="spinner"></div><div>Synchronizing Void...</div></div>
+  <div id="game-container">
+    <div id="ui">Waiting for player...</div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+  </div>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const ui = document.getElementById('ui');
+
+    // --- State ---
+    let board = Array(9).fill(null);
+    let xHistory = [];
+    let oHistory = [];
+    let mySymbol = '';
+    let myTurn = false;
+    let gameStarted = false;
+    let winner = null;
+    let winLine = null;
+
+    // --- Bridge ---
+    function send(data) {
+      if (window.parent !== window) {
+        window.parent.postMessage(JSON.stringify(data), '*');
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      try {
+        let data = event.data;
+        if (typeof data === 'string') { data = JSON.parse(data); }
+        if (!data || !data.type) return;
+
+        if (data.type === 'START') {
+          if (gameStarted) return;
+          gameStarted = true;
+          mySymbol = (data.isHost === true) ? 'X' : 'O';
+          myTurn = (data.isHost === true); // X goes first
+          document.getElementById('waiting').style.display = 'none';
+          updateStatus();
+        }
+
+        if (data.type === 'MOVE' && gameStarted) {
+          // Opponent placed their piece
+          const oppSymbol = (mySymbol === 'X') ? 'O' : 'X';
+          placepiece(data.index, oppSymbol);
+          myTurn = true;
+          updateStatus();
+        }
+      } catch(e) {}
+    });
+
+    // Handshake retry
+    if (window.parent !== window) {
+      const iv = setInterval(() => {
+        if (gameStarted) clearInterval(iv);
+        else send({ type: 'READY' });
+      }, 1000);
+    }
+
+    // --- Click Handler ---
+    canvas.addEventListener('mousedown', (e) => {
+      if (!myTurn || !gameStarted || winner) return;
+      const rect = canvas.getBoundingClientRect();
+      const col = Math.floor((e.clientX - rect.left) / (400 / 3));
+      const row = Math.floor((e.clientY - rect.top) / (400 / 3));
+      const index = row * 3 + col;
+      if (index < 0 || index > 8 || board[index] !== null) return;
+
+      // Place MY piece locally
+      placepiece(index, mySymbol);
+      // Tell opponent
+      send({ type: 'MOVE', index: index });
+      myTurn = false;
+      updateStatus();
+    });
+
+    function placepiece(index, symbol) {
+      board[index] = symbol;
+      const history = (symbol === 'X') ? xHistory : oHistory;
+      history.push(index);
+      // INFINITE RULE: max 3 pieces per player
+      if (history.length > 3) {
+        board[history.shift()] = null;
+      }
+      checkWinner();
+    }
+
+    function checkWinner() {
+      const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      for (const [a,b,c] of lines) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          winner = board[a];
+          winLine = [a, b, c];
+          return;
+        }
+      }
+    }
+
+    function updateStatus() {
+      if (winner) {
+        const isMe = winner === mySymbol;
+        ui.innerHTML = `<span class="${winner === 'X' ? 'status-cyan' : 'status-pink'}">${isMe ? 'You Win!' : 'You Lose!'}</span>`;
+      } else if (myTurn) {
+        ui.innerHTML = `<span class="${mySymbol === 'X' ? 'status-cyan' : 'status-pink'}">Your Turn (${mySymbol})</span>`;
+      } else {
+        ui.innerHTML = '<span class="status-waiting">Opponent Thinking...</span>';
+      }
+    }
+
+    // --- Rendering ---
+    function draw() {
+      ctx.clearRect(0, 0, 400, 400);
+      ctx.strokeStyle = 'rgba(100,120,255,0.2)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(133,20); ctx.lineTo(133,380);
+      ctx.moveTo(266,20); ctx.lineTo(266,380);
+      ctx.moveTo(20,133); ctx.lineTo(380,133);
+      ctx.moveTo(20,266); ctx.lineTo(380,266);
+      ctx.stroke();
+
+      board.forEach((cell, i) => {
+        if (!cell) return;
+        const x = (i % 3) * 133.3 + 66.6;
+        const y = Math.floor(i / 3) * 133.3 + 66.6;
+        const hist = (cell === 'X') ? xHistory : oHistory;
+        const fading = (hist[0] === i && hist.length === 3);
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.strokeStyle = cell === 'X' ? '#00e5ff' : '#ff4081';
+        ctx.shadowColor = cell === 'X' ? '#00e5ff' : '#ff4081';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = fading ? 5 : 15;
+        if (fading) ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 150) * 0.15;
+
+        if (cell === 'X') {
+          ctx.beginPath();
+          ctx.moveTo(-35,-35); ctx.lineTo(35,35);
+          ctx.moveTo(35,-35); ctx.lineTo(-35,35);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, 35, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+
+      if (winLine) {
+        const [s,,e] = winLine;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = winner === 'X' ? '#00e5ff' : '#ff4081';
+        ctx.beginPath();
+        ctx.moveTo((s%3)*133.3+66.6, Math.floor(s/3)*133.3+66.6);
+        ctx.lineTo((e%3)*133.3+66.6, Math.floor(e/3)*133.3+66.6);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>

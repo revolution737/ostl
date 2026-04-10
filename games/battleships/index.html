@@ -209,43 +209,39 @@
     }
 
     window.addEventListener('message', (event) => {
-      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
-      if (data.type === 'START') {
-        isHost = !data.youAreHost; // If we receive "youAreHost: false", we are Host
-        myTurn = isHost;
-        gameReady = true;
-        document.getElementById('waiting').style.display = 'none';
-        updateStatus();
-      }
-
-      if (data.type === 'ATTACK') {
-        const isHit = myShips.has(data.index);
-        const cell = document.getElementById(`my-${data.index}`);
-        cell.className = 'cell ' + (isHit ? 'hit' : 'miss');
-        
-        send({ 
-          type: 'RESULT', 
-          index: data.index, 
-          isHit: isHit,
-          source: 'response'
-        });
-        
-        myTurn = true;
-        updateStatus();
-      }
-
-      if (data.type === 'RESULT') {
-        const cell = document.getElementById(`enemy-${data.index}`);
-        if (data.isHit) {
-          cell.className = 'cell hit';
-          myHits.add(data.index);
-        } else {
-          cell.className = 'cell miss';
-          myMisses.add(data.index);
+        if (data.type === 'START') {
+          if (gameReady) return; // CRITICAL: ignore duplicate STARTs
+          isHost = (data.isHost === true);
+          myTurn = isHost;
+          gameReady = true;
+          document.getElementById('waiting').style.display = 'none';
+          updateStatus();
         }
-        updateScore();
-      }
+
+        if (data.type === 'ATTACK') {
+          const isHit = myShips.has(data.index);
+          const cell = document.getElementById(`my-${data.index}`);
+          cell.className = 'cell ' + (isHit ? 'hit' : 'miss');
+          send({ type: 'RESULT', index: data.index, isHit: isHit });
+          myTurn = true;
+          updateStatus();
+        }
+
+        if (data.type === 'RESULT') {
+          const cell = document.getElementById(`enemy-${data.index}`);
+          if (data.isHit) {
+            cell.className = 'cell hit';
+            myHits.add(data.index);
+          } else {
+            cell.className = 'cell miss';
+            myMisses.add(data.index);
+          }
+          updateScore();
+        }
+      } catch(e) {}
     });
 
     function updateStatus() {
@@ -262,9 +258,12 @@
     }
 
     initGrids();
-    if (isEmbedded) send({ type: 'READY' });
-    else {
-      // Direct testing
+    if (isEmbedded) {
+      const readyIv = setInterval(() => {
+        if (gameReady) clearInterval(readyIv);
+        else send({ type: 'READY' });
+      }, 1000);
+    } else {
       gameReady = true;
       myTurn = true;
       document.getElementById('waiting').style.display = 'none';

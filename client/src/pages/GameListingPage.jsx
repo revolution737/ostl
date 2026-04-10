@@ -38,7 +38,7 @@ export function GameListingPage() {
         const response = await fetch(
           import.meta.env.PROD
             ? "/api/games"
-            : "http://localhost:3000/api/games",
+            : `http://${window.location.hostname}:3000/api/games`,
         );
         if (!response.ok) throw new Error("Failed to fetch game catalog");
         const data = await response.json();

@@ -127,6 +127,7 @@
     let isHost = false; // Host is White
     let myColor = 'white';
     let myTurn = false;
+    let gameStarted = false;
     let selectedSquare = null;
 
     const PIECES = {
@@ -207,32 +208,31 @@
     }
 
     window.addEventListener('message', (event) => {
-      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
-      if (data.type === 'START') {
-        isHost = (data.isHost === true); // Strictly check for boolean true
-        myColor = isHost ? 'white' : 'black';
-        myTurn = isHost;
-        
-        console.log("CHESS START:", { isHost, myColor });
-        
-        document.getElementById('waiting').style.display = 'none';
-        updateUI();
-        renderBoard();
-      }
+        if (data.type === 'START') {
+          if (gameStarted) return; // CRITICAL: ignore duplicate STARTs
+          isHost = (data.isHost === true);
+          myColor = isHost ? 'white' : 'black';
+          myTurn = isHost;
+          gameStarted = true;
+          document.getElementById('waiting').style.display = 'none';
+          updateUI();
+          renderBoard();
+        }
 
-      if (data.type === 'MOVE') {
-        const { from, to } = data;
-        boardState[to.r][to.c] = boardState[from.r][from.c];
-        boardState[from.r][from.c] = '';
-        myTurn = true;
-        updateUI();
-        renderBoard();
-        
-        // Mark last move
-        document.getElementById(`s-${from.r}-${from.c}`).classList.add('last-move');
-        document.getElementById(`s-${to.r}-${to.c}`).classList.add('last-move');
-      }
+        if (data.type === 'MOVE') {
+          const { from, to } = data;
+          boardState[to.r][to.c] = boardState[from.r][from.c];
+          boardState[from.r][from.c] = '';
+          myTurn = true;
+          updateUI();
+          renderBoard();
+          document.getElementById(`s-${from.r}-${from.c}`).classList.add('last-move');
+          document.getElementById(`s-${to.r}-${to.c}`).classList.add('last-move');
+        }
+      } catch(e) {}
     });
 
     function updateUI() {
@@ -243,8 +243,12 @@
     }
 
     initBoard();
-    if (isEmbedded) send({ type: 'READY' });
-    else {
+    if (isEmbedded) {
+      const readyIv = setInterval(() => {
+        if (gameStarted) clearInterval(readyIv);
+        else send({ type: 'READY' });
+      }, 1000);
+    } else {
         document.getElementById('waiting').style.display = 'none';
         myTurn = true;
         updateUI();

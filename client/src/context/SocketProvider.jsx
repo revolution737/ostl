@@ -24,8 +24,12 @@ export const SocketProvider = ({ children }) => {
     setUuid(storedUuid);
 
     // 2. Initialize Socket.IO connection
-    // In production this would point to the deployed backend URL
-    const socketInstance = io(import.meta.env.PROD ? '/' : 'http://localhost:3000', {
+    // Dynamically point to the server on port 3000 if not in production
+    const serverUrl = import.meta.env.PROD 
+      ? '/' 
+      : `${window.location.protocol}//${window.location.hostname}:3000`;
+
+    const socketInstance = io(serverUrl, {
        transports: ['websocket'],
        reconnectionDelay: 1000,
        reconnectionDelayMax: 5000,
