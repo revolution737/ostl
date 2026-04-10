@@ -45,7 +45,7 @@ export function GamePage() {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [reconnectKey, setReconnectKey] = useState(0);
 
-  const { status, messages, sendMessage } = useWebRTC(socket, roomId, isHost, reconnectKey);
+  const { status, messages, sendMessage, setOnGameData } = useWebRTC(socket, roomId, isHost, reconnectKey);
 
   // Lock Document Scrolling
   useEffect(() => {
@@ -208,6 +208,7 @@ export function GamePage() {
               messages={messages}
               sendMessage={sendMessage}
               isReconnecting={isReconnecting}
+              setOnGameData={setOnGameData}
             />
           </div>
         </div>

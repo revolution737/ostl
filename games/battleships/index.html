@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Neon Fleet: Battleships — ostl.</title>
+  <title>Neon Fleet: Tactical command</title>
   <style>
     :root {
       --bg: #050510;
@@ -11,7 +11,7 @@
       --primary: #00f2ff;
       --secondary: #ff007b;
       --grid: rgba(0, 242, 255, 0.1);
-      --font: 'Segoe UI', system-ui, sans-serif;
+      --font: 'Courier New', monospace;
     }
 
     * { margin:0; padding:0; box-sizing:border-box; }
@@ -28,92 +28,130 @@
 
     #ui {
       width: 100%;
-      padding: 20px;
+      padding: 15px 30px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.8);
       backdrop-filter: blur(10px);
       border-bottom: 1px solid rgba(255,255,255,0.1);
       z-index: 10;
     }
 
     .status-pill {
-      padding: 6px 16px;
-      border-radius: 20px;
+      padding: 8px 20px;
+      border-radius: 4px;
       background: var(--panel);
       border: 1px solid var(--primary);
-      box-shadow: 0 0 15px var(--grid);
-      font-weight: 800;
+      box-shadow: 0 0 10px var(--grid);
+      font-weight: bold;
       font-size: 14px;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
       text-transform: uppercase;
+      text-align: center;
+    }
+    
+    .status-primary { border-color: var(--primary); color: var(--primary); text-shadow: 0 0 8px var(--primary); }
+    .status-secondary { border-color: var(--secondary); color: var(--secondary); text-shadow: 0 0 8px var(--secondary); }
+    .status-wait { border-color: #777; color: #aaa; }
+
+    #instruction {
+      font-size: 12px;
+      color: #aaa;
+      letter-spacing: 1px;
     }
 
     #game-container {
       flex: 1;
       display: flex;
-      gap: 40px;
-      padding: 40px;
+      gap: 50px;
+      padding: 20px;
       align-items: center;
       justify-content: center;
       width: 100%;
     }
 
     .board-container {
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .board-title {
-      font-size: 12px;
+      font-size: 14px;
       color: var(--primary);
-      margin-bottom: 15px;
-      letter-spacing: 2px;
-      font-weight: 900;
+      margin-bottom: 10px;
+      letter-spacing: 3px;
+      font-weight: bold;
       text-transform: uppercase;
+      text-shadow: 0 0 5px var(--primary);
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(10, 30px);
-      grid-template-rows: repeat(10, 30px);
-      gap: 2px;
-      background: var(--grid);
+      grid-template-columns: repeat(10, 32px);
+      grid-template-rows: repeat(10, 32px);
+      gap: 1px;
+      background: rgba(0, 242, 255, 0.2);
       padding: 2px;
-      border: 1px solid rgba(0, 242, 255, 0.3);
-      position: relative;
+      border: 2px solid rgba(0, 242, 255, 0.4);
+      box-shadow: 0 0 20px rgba(0, 242, 255, 0.05);
     }
 
     .cell {
-      width: 30px;
-      height: 30px;
+      width: 32px;
+      height: 32px;
       background: var(--bg);
       display: flex;
       align-items: center;
       justify-content: center;
-      cursor: crosshair;
-      transition: all 0.2s;
-      font-size: 10px;
+      transition: background 0.1s;
     }
 
-    .cell:hover {
-      background: rgba(0, 242, 255, 0.1);
-      box-shadow: inset 0 0 10px var(--primary);
+    /* Selection & Hover states */
+    #my-grid.setup-mode .cell { cursor: pointer; }
+    .cell.preview-valid { background: rgba(0, 242, 255, 0.4); box-shadow: inset 0 0 10px var(--primary); }
+    .cell.preview-invalid { background: rgba(255, 0, 123, 0.4); box-shadow: inset 0 0 10px var(--secondary); }
+
+    /* Placed Ship */
+    .cell.ship { background: #1a1a40; border: 1px solid var(--primary); box-shadow: inset 0 0 8px rgba(0,242,255,0.3); }
+    
+    /* Play actions */
+    #enemy-grid.play-mode .cell { cursor: crosshair; }
+    #enemy-grid.play-mode .cell:hover:not(.hit):not(.miss) { background: rgba(255, 0, 123, 0.2); }
+    
+    /* Hits and Misses */
+    .cell.hit { 
+      background: var(--secondary); 
+      box-shadow: 0 0 15px var(--secondary); 
+      position: relative;
+    }
+    .cell.hit::after {
+      content: '✕';
+      color: white;
+      font-weight: bold;
+      text-shadow: 0 0 5px black;
+    }
+    .cell.miss { 
+      background: #2a2a3a; 
+      position: relative;
+    }
+    .cell.miss::after {
+      content: '·';
+      color: #777;
+      font-size: 20px;
     }
 
-    .cell.ship { background: #1a1a40; border: 1px solid var(--primary); }
-    .cell.hit { background: var(--secondary); box-shadow: 0 0 15px var(--secondary); }
-    .cell.miss { background: #333; }
-
-    #waiting {
-      position: fixed; top:0; left:0; width:100%; height:100%;
+    #overlay {
+      position: fixed; inset:0;
       background: var(--bg);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       z-index: 100;
+      transition: opacity 0.5s;
     }
 
     .scanner {
-      width: 100px; height: 100px;
+      width: 80px; height: 80px;
       border-radius: 50%;
       border: 2px solid var(--primary);
       position: relative;
@@ -136,140 +174,329 @@
 </head>
 <body>
 
-  <div id="waiting">
+  <div id="overlay">
     <div class="scanner"></div>
-    <p>ESTABLISHING SECURE COMMS...</p>
+    <p style="letter-spacing: 3px; font-weight: bold;">ESTABLISHING SECURE COMMS...</p>
   </div>
 
   <div id="ui">
-    <div class="status-pill" id="turn-indicator">System Booting...</div>
-    <div id="score" style="font-weight: 900;">ENEMY SHIPS LEFT: 5</div>
+    <div class="status-pill status-wait" id="turn-indicator">SYSTEM BOOTING</div>
+    <div id="instruction">WAITING FOR BRIDGE</div>
   </div>
 
   <div id="game-container">
     <div class="board-container">
-      <div class="board-title">My Waters</div>
+      <div class="board-title">My Fleet</div>
       <div id="my-grid" class="grid"></div>
     </div>
     <div class="board-container">
-      <div class="board-title">Tactical Map (Attack)</div>
+      <div class="board-title">Tactical Radar</div>
       <div id="enemy-grid" class="grid"></div>
     </div>
   </div>
 
   <script>
     // ─── Bridge ──────────────────────────────────────────────
-    const isEmbedded = window.parent !== window;
-    function send(data) {
-      if (isEmbedded) window.parent.postMessage(JSON.stringify(data), '*');
-    }
-
-    let isHost = false;
-    let myTurn = false;
-    let gameReady = false;
-
-    // ─── Game State ──────────────────────────────────────────
-    const SIZE = 10;
-    const myShips = new Set();
-    const enemyHits = new Set();
-    const enemyMisses = new Set();
-    const myHits = new Set();
-    const myMisses = new Set();
-
-    // Random ship placement (5 ships)
-    while(myShips.size < 5) {
-      myShips.add(Math.floor(Math.random() * 100));
-    }
-
-    function initGrids() {
-      const myGrid = document.getElementById('my-grid');
-      const enemyGrid = document.getElementById('enemy-grid');
-
-      for(let i=0; i<100; i++) {
-        const myCell = document.createElement('div');
-        myCell.className = 'cell' + (myShips.has(i) ? ' ship' : '');
-        myCell.id = `my-${i}`;
-        myGrid.appendChild(myCell);
-
-        const enemyCell = document.createElement('div');
-        enemyCell.className = 'cell';
-        enemyCell.id = `enemy-${i}`;
-        enemyCell.onclick = () => fireAt(i);
-        enemyGrid.appendChild(enemyCell);
+    function sendUp(data) {
+      if (window.parent !== window) {
+        window.parent.postMessage(JSON.stringify(data), '*');
       }
     }
 
-    function fireAt(index) {
-      if (!myTurn || !gameReady) return;
-      if (myHits.has(index) || myMisses.has(index)) return;
+    let isHost = false;
+    let gameStarted = false; // from bridge
+    let phase = 'INIT'; // INIT -> SETUP -> WAITING -> PLAY -> END
+    
+    // ─── Setup Phase Variables ───────────────────────────────
+    const SHIPS = [
+      { name: 'Aircraft Carrier', size: 5 },
+      { name: 'Battleship', size: 4 },
+      { name: 'Cruiser', size: 3 },
+      { name: 'Submarine', size: 3 },
+      { name: 'Destroyer', size: 2 }
+    ];
+    let currentShipIndex = 0;
+    let isHorizontal = true;
+    let opponentSetupDone = false;
 
-      send({ type: 'ATTACK', index });
-      myTurn = false;
-      updateStatus();
+    // ─── Game State ──────────────────────────────────────────
+    const myShips = new Set();
+    const myHits = new Set();   // Hits I have fired
+    const myMisses = new Set(); // Misses I have fired
+    
+    // Track health of my ships so opponent knows of total victory
+    let myTotalHitsReceived = 0;
+    const TOTAL_SHIP_CELLS = 5 + 4 + 3 + 3 + 2;
+
+    let myTurn = false;
+
+    // ─── DOM ─────────────────────────────────────────────────
+    const myGrid = document.getElementById('my-grid');
+    const enemyGrid = document.getElementById('enemy-grid');
+    const indicator = document.getElementById('turn-indicator');
+    const instruction = document.getElementById('instruction');
+
+    // Create Grids
+    const myCells = [];
+    const enemyCells = [];
+
+    for (let i = 0; i < 100; i++) {
+      // My Cell
+      const mc = document.createElement('div');
+      mc.className = 'cell';
+      mc.dataset.index = i;
+      mc.addEventListener('mouseenter', () => onMyCellEnter(i));
+      mc.addEventListener('mouseleave', clearPreviews);
+      mc.addEventListener('click', () => onMyCellClick(i));
+      // Right click to rotate
+      mc.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (phase === 'SETUP') {
+          isHorizontal = !isHorizontal;
+          clearPreviews();
+          onMyCellEnter(i);
+        }
+      });
+      myGrid.appendChild(mc);
+      myCells.push(mc);
+
+      // Enemy Cell
+      const ec = document.createElement('div');
+      ec.className = 'cell';
+      ec.dataset.index = i;
+      ec.addEventListener('click', () => onEnemyCellClick(i));
+      enemyGrid.appendChild(ec);
+      enemyCells.push(ec);
     }
 
+    // ─── Setup Logic ─────────────────────────────────────────
+
+    function getPlacementCells(startIndex, size, horizontal) {
+      const row = Math.floor(startIndex / 10);
+      const col = startIndex % 10;
+      const cells = [];
+      
+      if (horizontal) {
+        if (col + size > 10) return null; // out of bounds
+        for (let i = 0; i < size; i++) cells.push(startIndex + i);
+      } else {
+        if (row + size > 10) return null; // out of bounds
+        for (let i = 0; i < size; i++) cells.push(startIndex + i * 10);
+      }
+
+      // Check overlap
+      for (const c of cells) {
+        if (myShips.has(c)) return null;
+      }
+      return cells;
+    }
+
+    function clearPreviews() {
+      myCells.forEach(c => {
+        c.classList.remove('preview-valid', 'preview-invalid');
+      });
+    }
+
+    function onMyCellEnter(index) {
+      if (phase !== 'SETUP') return;
+      
+      const ship = SHIPS[currentShipIndex];
+      const cellsToHighlight = getPlacementCells(index, ship.size, isHorizontal);
+      
+      if (cellsToHighlight) {
+        cellsToHighlight.forEach(i => myCells[i].classList.add('preview-valid'));
+      } else {
+        // Invalid placement - just highlight the base cell or cells that fit before collision? 
+        // Let's just highlight the start cell as invalid
+        myCells[index].classList.add('preview-invalid');
+      }
+    }
+
+    function onMyCellClick(index) {
+      if (phase !== 'SETUP') return;
+
+      const ship = SHIPS[currentShipIndex];
+      const cellsToPlace = getPlacementCells(index, ship.size, isHorizontal);
+      
+      if (cellsToPlace) {
+        // Place it
+        cellsToPlace.forEach(i => {
+          myShips.add(i);
+          myCells[i].classList.add('ship');
+        });
+        
+        currentShipIndex++;
+        clearPreviews();
+        
+        if (currentShipIndex >= SHIPS.length) {
+          finishSetup();
+        } else {
+          updateUI();
+        }
+      }
+    }
+
+    function finishSetup() {
+      phase = 'WAITING';
+      myGrid.classList.remove('setup-mode');
+      sendUp({ type: 'SETUP_DONE' });
+      
+      if (opponentSetupDone) {
+        startGame();
+      } else {
+        updateUI();
+      }
+    }
+
+    function startGame() {
+      phase = 'PLAY';
+      myTurn = isHost;
+      enemyGrid.classList.add('play-mode');
+      updateUI();
+    }
+
+    // ─── Play Logic ──────────────────────────────────────────
+
+    function onEnemyCellClick(index) {
+      if (phase !== 'PLAY' || !myTurn) return;
+      if (myHits.has(index) || myMisses.has(index)) return; // already fired here
+
+      sendUp({ type: 'ATTACK', index });
+      myTurn = false;
+      updateUI();
+    }
+
+    // ─── Messaging ───────────────────────────────────────────
+
     window.addEventListener('message', (event) => {
-      const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      let data;
+      try {
+        data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+      } catch(e) { return; }
+      
+      if (!data || !data.type) return;
 
       if (data.type === 'START') {
-        isHost = !data.youAreHost; // If we receive "youAreHost: false", we are Host
-        myTurn = isHost;
-        gameReady = true;
-        document.getElementById('waiting').style.display = 'none';
-        updateStatus();
+        if (gameStarted) return;
+        gameStarted = true;
+        isHost = !!data.isHost;
+        phase = 'SETUP';
+        document.getElementById('overlay').style.opacity = '0';
+        setTimeout(() => document.getElementById('overlay').style.display = 'none', 500);
+        myGrid.classList.add('setup-mode');
+        updateUI();
+      }
+
+      if (data.type === 'SETUP_DONE') {
+        opponentSetupDone = true;
+        if (phase === 'WAITING') {
+          startGame();
+        }
       }
 
       if (data.type === 'ATTACK') {
         const isHit = myShips.has(data.index);
-        const cell = document.getElementById(`my-${data.index}`);
-        cell.className = 'cell ' + (isHit ? 'hit' : 'miss');
+        if (isHit) myTotalHitsReceived++;
         
-        send({ 
+        const cell = myCells[data.index];
+        cell.classList.add(isHit ? 'hit' : 'miss');
+        
+        const isDefeated = (myTotalHitsReceived >= TOTAL_SHIP_CELLS);
+
+        sendUp({ 
           type: 'RESULT', 
           index: data.index, 
           isHit: isHit,
-          source: 'response'
+          isDefeated: isDefeated
         });
         
-        myTurn = true;
-        updateStatus();
+        if (!isDefeated) {
+          myTurn = true;
+        } else {
+          phase = 'END';
+        }
+        updateUI();
       }
 
       if (data.type === 'RESULT') {
-        const cell = document.getElementById(`enemy-${data.index}`);
+        const cell = enemyCells[data.index];
         if (data.isHit) {
-          cell.className = 'cell hit';
+          cell.classList.add('hit');
           myHits.add(data.index);
         } else {
-          cell.className = 'cell miss';
+          cell.classList.add('miss');
           myMisses.add(data.index);
         }
-        updateScore();
+        
+        if (data.isDefeated) {
+          phase = 'END';
+        }
+        
+        updateUI();
       }
     });
 
-    function updateStatus() {
-      const pill = document.getElementById('turn-indicator');
-      pill.innerText = myTurn ? "Your Turn: Fire!" : "Enemy Turn: Tactical Silence";
-      pill.style.borderColor = myTurn ? 'var(--primary)' : 'var(--secondary)';
+    // Send READY until START
+    if (window.parent !== window) {
+      const hb = setInterval(() => {
+        if (gameStarted) clearInterval(hb);
+        else sendUp({ type: 'READY' });
+      }, 800);
     }
 
-    function updateScore() {
-      document.getElementById('score').innerText = `ENEMY SHIPS LEFT: ${5 - myHits.size}`;
-      if (myHits.size >= 5) {
-        alert("ENEMEY FLEET DESTROYED!");
+    // ─── UI Updates ──────────────────────────────────────────
+
+    function updateUI() {
+      indicator.className = 'status-pill';
+      
+      if (phase === 'SETUP') {
+        const ship = SHIPS[currentShipIndex];
+        indicator.innerText = "FLEET DEPLOYMENT";
+        indicator.classList.add('status-primary');
+        instruction.innerHTML = `Place your <b>${ship.name}</b> (${ship.size} spaces).<br>Right-click to rotate.`;
+      } 
+      else if (phase === 'WAITING') {
+        indicator.innerText = "STANDBY";
+        indicator.classList.add('status-wait');
+        instruction.innerText = "Waiting for enemy fleet deployment...";
+      }
+      else if (phase === 'PLAY') {
+        if (myTurn) {
+          indicator.innerText = "YOUR TURN: FIRE!";
+          indicator.classList.add('status-primary');
+          instruction.innerText = "Select coordinates on the Tactical Radar.";
+        } else {
+          indicator.innerText = "ENEMY TURN";
+          indicator.classList.add('status-secondary');
+          instruction.innerText = "Brace for impact...";
+        }
+      }
+      else if (phase === 'END') {
+        if (myTurn) {
+          // If it was my turn and I received a RESULT with isDefeated... wait, myTurn was false when I sent ATTACK.
+          // The logic says if I receive RESULT with isDefeated, I win!
+          indicator.innerText = "VICTORY!";
+          indicator.classList.add('status-primary');
+          instruction.innerText = "Enemy fleet annihilated.";
+        } else {
+          indicator.innerText = "DEFEAT";
+          indicator.classList.add('status-secondary');
+          instruction.innerText = "Our fleet has been destroyed.";
+        }
       }
     }
 
-    initGrids();
-    if (isEmbedded) send({ type: 'READY' });
-    else {
-      // Direct testing
-      gameReady = true;
-      myTurn = true;
-      document.getElementById('waiting').style.display = 'none';
-      updateStatus();
-    }
+    // Keybindings for rotate
+    document.addEventListener('keydown', (e) => {
+      if (phase === 'SETUP' && (e.key === 'r' || e.key === 'R')) {
+        isHorizontal = !isHorizontal;
+        clearPreviews();
+        // Can't easily force an enter event, but moving mouse will trigger it.
+        instruction.style.color = '#fff';
+        setTimeout(() => instruction.style.color = '#aaa', 200);
+      }
+    });
+
   </script>
 </body>
 </html>

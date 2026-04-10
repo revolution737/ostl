@@ -82,8 +82,9 @@
           scores.left = data.left;
           scores.right = data.right;
         } else if (data.type === 'START') {
+          if (gameStarted) return; // CRITICAL: ignore duplicate STARTs
           gameStarted = true;
-          isHost = !!data.isHost;
+          isHost = (data.isHost === true);
           document.getElementById('waiting').style.display = 'none';
         }
       } catch (e) {}
@@ -150,14 +151,10 @@
         document.getElementById('waiting').style.display = 'none';
       }, 500);
     } else {
-      sendToOpponent({ type: 'READY' });
-      setTimeout(() => {
-        if (!gameStarted) {
-          gameStarted = true;
-          isHost = true;
-          document.getElementById('waiting').style.display = 'none';
-        }
-      }, 3000);
+      const readyIv = setInterval(() => {
+        if (gameStarted) clearInterval(readyIv);
+        else sendToOpponent({ type: 'READY' });
+      }, 1000);
     }
 
     // ─── Game Loop ──────────────────────────────────────────
@@ -231,12 +228,18 @@
           sendToOpponent({ type: 'SCORE', left: scores.left, right: scores.right });
         }
       } else {
-        // GUEST: No local prediction. Purely follow the Host's lead to prevent jitter.
+        // GUEST: local prediction using velocity + smooth correction from host
+        ball.x += ball.vx * scale;
+        ball.y += ball.vy * scale;
+
+        if (ball.y - BALL_R <= 0 || ball.y + BALL_R >= H) {
+          ball.vy *= -1;
+          ball.y = Math.max(BALL_R, Math.min(H - BALL_R, ball.y));
+        }
+
         if (ball.targetX !== undefined) {
-          // Swiftly follow the host with a slight lerp for smoothness
-          ball.vx = 0; ball.vy = 0; // stop local physics
-          ball.x += (ball.targetX - ball.x) * 0.4 * scale;
-          ball.y += (ball.targetY - ball.y) * 0.4 * scale;
+          ball.x += (ball.targetX - ball.x) * 0.2 * scale;
+          ball.y += (ball.targetY - ball.y) * 0.2 * scale;
         }
       }
 

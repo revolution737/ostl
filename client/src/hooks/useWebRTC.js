@@ -15,6 +15,9 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
   const initializationRef = useRef(false);
+  // Direct callback ref — fires IMMEDIATELY when opponent data arrives,
+  // bypassing React's state batching entirely.
+  const onGameDataRef = useRef(null);
 
   const sendMessage = useCallback((payload) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
@@ -30,6 +33,11 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
     } else {
       console.warn('[webrtc] Data channel is not open');
     }
+  }, []);
+
+  // Allow external components to register a direct data handler
+  const setOnGameData = useCallback((callback) => {
+    onGameDataRef.current = callback;
   }, []);
 
   useEffect(() => {
@@ -99,6 +107,13 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
         try {
           const messageObj = JSON.parse(event.data);
           messageObj.sender = 'opponent';
+          
+          // CRITICAL: Fire the direct callback IMMEDIATELY,
+          // before React state batching can interfere.
+          if (onGameDataRef.current) {
+            onGameDataRef.current(messageObj.data);
+          }
+          
           setMessages((prev) => [...prev, messageObj]);
         } catch (e) {}
       };
@@ -130,5 +145,5 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
     };
   }, [socket, roomId, isHost, reconnectKey]);
 
-  return { status, messages, sendMessage };
+  return { status, messages, sendMessage, setOnGameData };
 }
