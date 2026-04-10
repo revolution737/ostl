@@ -6,9 +6,11 @@ const { Server } = require('socket.io')
 const { createAdapter } = require('@socket.io/redis-adapter')
 const { registerHandlers } = require('./handlers')
 const { testConnection } = require('./db/pool')
+const { runAutoMigration } = require('./db/migrate')
 const { pubClient, subClient, testRedisConnection } = require('./redis')
 const { createGameServingMiddleware } = require('./middleware/gameServing')
 const gamesRouter = require('./routes/games')
+const authRouter = require('./routes/auth')
 const { getQueues } = require('./matchmaking')
 const { getRegisteredPlayers } = require('./players')
 const { getActiveRooms } = require('./rooms')
@@ -33,6 +35,7 @@ app.use('/api', (req, res, next) => {
 
 // ─── REST API ────────────────────────────────────────────
 app.use('/api/games', gamesRouter)
+app.use('/api/auth', authRouter)
 
 // ─── Debug Endpoint ──────────────────────────────────────
 app.get('/api/debug', (req, res) => {
@@ -84,11 +87,12 @@ async function start() {
   })
 
   // Test DB connection
-  testConnection().then(dbOk => {
+  testConnection().then(async (dbOk) => {
     if (!dbOk) {
       console.warn('[server] ⚠ Database unavailable — history will not be persisted.')
     } else {
       console.log('[server] Database connected successfully')
+      await runAutoMigration()
     }
   }).catch(err => {
     console.error('[server] Database check failed:', err.message)

@@ -41,19 +41,16 @@ export function GameWrapper({
   // --- B. OUTBOUND RELAY (Iframe -> WebRTC) ---
   useEffect(() => {
     const handleIframeMessage = (event) => {
+      // Security: Verify Origin matches the expected Supabase Bucket/Local Proxy
+      if (targetOrigin !== '*' && event.origin !== targetOrigin) return;
+
       if (typeof event.data === 'string') {
         try {
           const parsed = JSON.parse(event.data);
-          
-          if (parsed.type === 'READY' && status === 'connected') {
-            iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'START', isHost: !!isHost }), targetOrigin);
-            return;
-          }
-
-          if (status === 'connected' && !isReconnecting) {
-            sendMessage(JSON.stringify(parsed));
-          }
-        } catch (error) {}
+          sendMessage(JSON.stringify(parsed));
+        } catch (error) {
+           // Ignore non-JSON
+        }
       }
     };
 

@@ -15,10 +15,11 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     // 1. Manage ephemeral UUID
-    let storedUuid = localStorage.getItem('ostl_uuid');
+    // Changed to sessionStorage so multiple browser tabs act as different players
+    let storedUuid = sessionStorage.getItem('ostl_uuid');
     if (!storedUuid) {
       storedUuid = uuidv4();
-      localStorage.setItem('ostl_uuid', storedUuid);
+      sessionStorage.setItem('ostl_uuid', storedUuid);
     }
     setUuid(storedUuid);
 

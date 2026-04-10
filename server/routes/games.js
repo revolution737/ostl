@@ -12,6 +12,11 @@ const fs = require('fs')
 const crypto = require('crypto')
 const db = require('../db/pool')
 const supabase = require('../services/supabaseService')
+const BUCKET_NAME = supabase.BUCKET_NAME || 'game-assets';
+
+const getPlayUrl = (slug) => {
+  return `/api/games/${slug}/play/index.html?v=${Date.now()}`;
+};
 
 const router = express.Router()
 
@@ -108,19 +113,36 @@ function extractZip(zip, entries, targetDir) {
 
 router.get('/', async (req, res) => {
   try {
-    const { rows: games } = await db.query(`
+    const developerId = req.query.developer_id;
+    let queryText = `
       SELECT 
-        gc.id, gc.slug, gc.title, gc.description, gc.thumbnail_url, gc.play_url,
-        gc.min_players, gc.max_players, gc.created_at,
+        gc.id, gc.slug, gc.title, gc.description, gc.thumbnail_url,
+        gc.min_players, gc.max_players, gc.created_at, gc.developer_id,
         COUNT(mh.id)::int AS total_plays
       FROM game_catalog gc
       LEFT JOIN match_history mh ON mh.game_slug = gc.slug
       WHERE gc.is_active = true
+    `;
+    const params = [];
+
+    if (developerId) {
+      params.push(developerId);
+      queryText += ` AND gc.developer_id = $${params.length}`;
+    }
+
+    queryText += `
       GROUP BY gc.id
       ORDER BY gc.created_at DESC
-    `)
+    `;
 
-    res.json({ games })
+    const { rows: games } = await db.query(queryText, params);
+
+    const gamesWithUrls = games.map(g => ({
+      ...g,
+      play_url: getPlayUrl(g.slug)
+    }))
+
+    res.json({ games: gamesWithUrls })
   } catch (err) {
     console.error('[api] GET /api/games error:', err.message)
     res.status(500).json({ error: 'Failed to fetch games' })
@@ -150,7 +172,10 @@ router.get('/:slug', async (req, res) => {
     `, [req.params.slug])
 
     res.json({ 
-      game: rows[0],
+      game: {
+        ...rows[0],
+        play_url: getPlayUrl(rows[0].slug)
+      },
       stats: stats[0] || { total_plays: 0, unique_players: 0 }
     })
   } catch (err) {
@@ -158,6 +183,42 @@ router.get('/:slug', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch game' })
   }
 })
+// ─── GET /api/games/:slug/play/* ───────────────────────────
+// Acts as an explicit edge proxy to Supabase Storage.
+// By default, Supabase Storage returns Public HTML payloads as text/plain with nosniff Sandbox headers, which inherently breaks game iframe mountings.
+router.use('/:slug/play', async (req, res) => {
+  const { slug } = req.params;
+  const assetPath = req.path.replace(/^\//, '') || 'index.html';
+  
+  const baseUrl = process.env.SUPABASE_URL || 'https://ukkqwldxrgvklhlhggwq.supabase.co';
+  const supabaseUrl = `${baseUrl}/storage/v1/object/public/${BUCKET_NAME}/games/${slug}/${assetPath}`;
+  
+  try {
+    const fetchRes = await fetch(supabaseUrl);
+    if (!fetchRes.ok) {
+       return res.status(fetchRes.status).send(`Asset not found: ${assetPath}`);
+    }
+
+    const buffer = await fetchRes.arrayBuffer();
+    const mimeLib = require('mime-types');
+    let dynamicMime = mimeLib.lookup(assetPath) || fetchRes.headers.get('content-type') || 'application/octet-stream';
+    
+    // Explicit Override Constraints
+    if (assetPath.endsWith('.html')) dynamicMime = 'text/html; charset=utf-8';
+    else if (assetPath.endsWith('.css')) dynamicMime = 'text/css; charset=utf-8';
+    else if (assetPath.endsWith('.js')) dynamicMime = 'application/javascript; charset=utf-8';
+    
+    res.setHeader('Content-Type', dynamicMime);
+    
+    // Allow iframes (overrides X-Frame-Options if present)
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.send(Buffer.from(buffer));
+
+  } catch (err) {
+    console.error(`[proxy] Error loading ${assetPath}:`, err.message);
+    res.status(500).send('Storage proxy failure');
+  }
+});
 
 // ─── POST /api/games ─────────────────────────────────────
 
@@ -169,7 +230,7 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded. Send a .zip as "gameZip" field.' })
     }
 
-    const { title, description, thumbnail_url } = req.body
+    const { title, description, thumbnail_url, developer_id } = req.body
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Title is required' })
     }
@@ -200,10 +261,10 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
 
     // Insert into database
     const { rows } = await db.query(`
-      INSERT INTO game_catalog (slug, title, description, thumbnail_url, play_url)
+      INSERT INTO game_catalog (slug, title, description, thumbnail_url, developer_id)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim(), playUrl])
+    `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim(), developer_id || null])
 
     console.log(`[api] Published game: "${title}" → ${playUrl}`)
 

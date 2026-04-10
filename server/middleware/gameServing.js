@@ -32,7 +32,9 @@ function createGameServingMiddleware() {
     extensions: ['html'],
     setHeaders: (res, filePath) => {
       // Set correct MIME types for game assets
-      if (filePath.endsWith('.wasm')) {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Content-Type', 'text/html')
+      } else if (filePath.endsWith('.wasm')) {
         res.setHeader('Content-Type', 'application/wasm')
       } else if (filePath.endsWith('.pck')) {
         res.setHeader('Content-Type', 'application/octet-stream')
@@ -47,7 +49,9 @@ function createGameServingMiddleware() {
     router.use('/games', express.static(repoGamesDir, {
       extensions: ['html'],
       setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.wasm')) {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Content-Type', 'text/html')
+        } else if (filePath.endsWith('.wasm')) {
           res.setHeader('Content-Type', 'application/wasm')
         } else if (filePath.endsWith('.pck')) {
           res.setHeader('Content-Type', 'application/octet-stream')
