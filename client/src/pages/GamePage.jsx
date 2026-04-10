@@ -129,11 +129,12 @@ export function GamePage() {
     data: JSON.parse(msg.data)
   }));
 
+  const scrollTriggerLength = messages.length;
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [chatHistory]);
+  }, [scrollTriggerLength]);
 
   const ChatBubble = ({ msg }) => {
     const isMe = msg.sender === 'me';

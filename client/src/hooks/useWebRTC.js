@@ -29,7 +29,18 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
       };
       
       dataChannelRef.current.send(JSON.stringify(messageObj));
-      setMessages((prev) => [...prev, messageObj]);
+
+      let isSystem = false;
+      try {
+         const p = typeof payload === 'string' ? JSON.parse(payload) : payload;
+         if (p && p.type && p.type.startsWith('SYS_')) {
+            isSystem = true;
+         }
+      } catch(e) {}
+
+      if (isSystem) {
+         setMessages((prev) => [...prev, messageObj]);
+      }
     } else {
       console.warn('[webrtc] Data channel is not open');
     }
@@ -108,13 +119,23 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
           const messageObj = JSON.parse(event.data);
           messageObj.sender = 'opponent';
           
-          // CRITICAL: Fire the direct callback IMMEDIATELY,
-          // before React state batching can interfere.
-          if (onGameDataRef.current) {
+          let isSystem = false;
+          try {
+             const payload = typeof messageObj.data === 'string' ? JSON.parse(messageObj.data) : messageObj.data;
+             if (payload && payload.type && payload.type.startsWith('SYS_')) {
+                 isSystem = true;
+             }
+          } catch(e) {}
+
+          // CRITICAL: Fire the direct callback IMMEDIATELY natively to bypass React
+          if (onGameDataRef.current && !isSystem) {
             onGameDataRef.current(messageObj.data);
           }
           
-          setMessages((prev) => [...prev, messageObj]);
+          // Only track structural chat state in React state arrays
+          if (isSystem) {
+            setMessages((prev) => [...prev, messageObj]);
+          }
         } catch (e) {}
       };
     }
