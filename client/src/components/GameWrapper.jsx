@@ -115,7 +115,7 @@ export function GameWrapper({
           ref={iframeRef}
           src={gamePath}
           className={`w-full h-full border-0 focus:outline-none transition-opacity duration-300 ${isReconnecting ? 'opacity-20 blur-sm pointer-events-none' : 'opacity-100'}`}
-          sandbox="allow-scripts allow-same-origin"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           title="Sandbox Engine"
         />
       </div>
