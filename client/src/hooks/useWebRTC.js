@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 
 const ICE_SERVERS = {
   iceServers: [
@@ -18,7 +19,7 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
   const sendMessage = useCallback((payload) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
       const messageObj = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         sender: 'me',
         data: payload,
         timestamp: Date.now(),

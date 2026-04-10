@@ -35,11 +35,7 @@ export function GameListingPage() {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        const response = await fetch(
-          import.meta.env.PROD
-            ? "/api/games"
-            : "http://localhost:3000/api/games",
-        );
+        const response = await fetch("/api/games");
         if (!response.ok) throw new Error("Failed to fetch game catalog");
         const data = await response.json();
         setGames(data.games);
@@ -61,7 +57,7 @@ export function GameListingPage() {
       displayName.trim() ||
       RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
 
-    navigate("/matchmaking", {
+    navigate(`/matchmaking/${selectedGame.slug}`, {
       state: {
         gameId: selectedGame.slug, // Use slug as the unique ID
         playUrl: selectedGame.play_url, // pass the cloud hosted URL

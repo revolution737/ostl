@@ -67,9 +67,22 @@ registerHandlers(io)
 const PORT = process.env.PORT || 3000
 
 async function start() {
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
+    const os = require('os');
+    const nets = os.networkInterfaces();
+    let lanIp = 'localhost';
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          lanIp = net.address;
+          break;
+        }
+      }
+      if (lanIp !== 'localhost') break;
+    }
     console.log(`[server] ostl. matchmaker running on port ${PORT}`)
-    console.log(`[server] REST API:       http://localhost:${PORT}/api/games`)
+    console.log(`[server] Local:   http://localhost:${PORT}/api/games`)
+    console.log(`[server] Network: http://${lanIp}:${PORT}/api/games`)
   })
 
   // ─── Post-Startup Validation (Non-blocking) ────────────
