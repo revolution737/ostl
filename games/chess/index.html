@@ -210,9 +210,12 @@
       const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
 
       if (data.type === 'START') {
-        isHost = !!data.isHost; 
+        isHost = (data.isHost === true); // Strictly check for boolean true
         myColor = isHost ? 'white' : 'black';
         myTurn = isHost;
+        
+        console.log("CHESS START:", { isHost, myColor });
+        
         document.getElementById('waiting').style.display = 'none';
         updateUI();
         renderBoard();

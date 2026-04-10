@@ -198,7 +198,7 @@ export function GamePage() {
       <GameWrapper 
         roomId={roomId}
         isHost={isHost}
-        gamePath={playUrl || `/games/${sessionContext?.gameId || 'dummy-game'}/index.html`}
+        gamePath={`/games/${sessionContext?.gameId || 'dummy-game'}/index.html`}
         onDisconnect={leaveMatch}
         status={status}
         messages={messages}
