@@ -110,7 +110,7 @@ router.get('/', async (req, res) => {
   try {
     const { rows: games } = await db.query(`
       SELECT 
-        gc.id, gc.slug, gc.title, gc.description, gc.thumbnail_url,
+        gc.id, gc.slug, gc.title, gc.description, gc.thumbnail_url, gc.play_url,
         gc.min_players, gc.max_players, gc.created_at,
         COUNT(mh.id)::int AS total_plays
       FROM game_catalog gc
@@ -200,10 +200,10 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
 
     // Insert into database
     const { rows } = await db.query(`
-      INSERT INTO game_catalog (slug, title, description, thumbnail_url)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO game_catalog (slug, title, description, thumbnail_url, play_url)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim()])
+    `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim(), playUrl])
 
     console.log(`[api] Published game: "${title}" → ${playUrl}`)
 

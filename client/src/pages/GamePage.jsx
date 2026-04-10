@@ -27,6 +27,7 @@ export function GamePage() {
 
   const roomId = sessionContext?.roomId || '';
   const isHost = sessionContext?.isHost || false;
+  const playUrl = sessionContext?.playUrl || '';
   const opponentName = sessionContext?.opponentName || 'Opponent';
   const displayName = sessionContext?.displayName || 'Unknown Player';
 
@@ -197,7 +198,7 @@ export function GamePage() {
       <GameWrapper 
         roomId={roomId}
         isHost={isHost}
-        gamePath={`/games/${sessionContext?.gameId || 'dummy-game'}/index.html`}
+        gamePath={playUrl || `/games/${sessionContext?.gameId || 'dummy-game'}/index.html`}
         onDisconnect={leaveMatch}
         status={status}
         messages={messages}

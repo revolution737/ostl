@@ -64,6 +64,7 @@ export function GameListingPage() {
     navigate("/matchmaking", {
       state: {
         gameId: selectedGame.slug, // Use slug as the unique ID
+        playUrl: selectedGame.play_url, // pass the cloud hosted URL
         displayName: finalName,
       },
     });
