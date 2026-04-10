@@ -12,6 +12,11 @@ const fs = require('fs')
 const crypto = require('crypto')
 const db = require('../db/pool')
 const supabase = require('../services/supabaseService')
+const BUCKET_NAME = supabase.BUCKET_NAME || 'game-assets';
+
+const getPlayUrl = (slug) => {
+  return `${process.env.SUPABASE_URL}/storage/v1/object/public/${BUCKET_NAME}/games/${slug}/index.html`;
+};
 
 const router = express.Router()
 
@@ -108,19 +113,36 @@ function extractZip(zip, entries, targetDir) {
 
 router.get('/', async (req, res) => {
   try {
-    const { rows: games } = await db.query(`
+    const developerId = req.query.developer_id;
+    let queryText = `
       SELECT 
         gc.id, gc.slug, gc.title, gc.description, gc.thumbnail_url,
-        gc.min_players, gc.max_players, gc.created_at,
+        gc.min_players, gc.max_players, gc.created_at, gc.developer_id,
         COUNT(mh.id)::int AS total_plays
       FROM game_catalog gc
       LEFT JOIN match_history mh ON mh.game_slug = gc.slug
       WHERE gc.is_active = true
+    `;
+    const params = [];
+
+    if (developerId) {
+      params.push(developerId);
+      queryText += ` AND gc.developer_id = $${params.length}`;
+    }
+
+    queryText += `
       GROUP BY gc.id
       ORDER BY gc.created_at DESC
-    `)
+    `;
 
-    res.json({ games })
+    const { rows: games } = await db.query(queryText, params);
+
+    const gamesWithUrls = games.map(g => ({
+      ...g,
+      play_url: getPlayUrl(g.slug)
+    }))
+
+    res.json({ games: gamesWithUrls })
   } catch (err) {
     console.error('[api] GET /api/games error:', err.message)
     res.status(500).json({ error: 'Failed to fetch games' })
@@ -150,7 +172,10 @@ router.get('/:slug', async (req, res) => {
     `, [req.params.slug])
 
     res.json({ 
-      game: rows[0],
+      game: {
+        ...rows[0],
+        play_url: getPlayUrl(rows[0].slug)
+      },
       stats: stats[0] || { total_plays: 0, unique_players: 0 }
     })
   } catch (err) {
@@ -169,7 +194,7 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded. Send a .zip as "gameZip" field.' })
     }
 
-    const { title, description, thumbnail_url } = req.body
+    const { title, description, thumbnail_url, developer_id } = req.body
     if (!title || !title.trim()) {
       return res.status(400).json({ error: 'Title is required' })
     }
@@ -200,10 +225,10 @@ router.post('/', upload.single('gameZip'), async (req, res) => {
 
     // Insert into database
     const { rows } = await db.query(`
-      INSERT INTO game_catalog (slug, title, description, thumbnail_url)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO game_catalog (slug, title, description, thumbnail_url, developer_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim()])
+    `, [slug, title.trim(), (description || '').trim(), (thumbnail_url || '').trim(), developer_id || null])
 
     console.log(`[api] Published game: "${title}" → ${playUrl}`)
 

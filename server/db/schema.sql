@@ -2,6 +2,16 @@
 -- Run this once against your PostgreSQL database:
 --   psql -U postgres -d ostl -f db/schema.sql
 
+-- Developer catalog: Authentication layer for custom engine submission
+CREATE TABLE IF NOT EXISTS developers (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(200) NOT NULL,
+    email         VARCHAR(300) UNIQUE NOT NULL,
+    password_hash VARCHAR(500) NOT NULL,
+    created_at    TIMESTAMPTZ DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Game catalog: every published game on the platform
 CREATE TABLE IF NOT EXISTS game_catalog (
     id            SERIAL PRIMARY KEY,
@@ -11,6 +21,7 @@ CREATE TABLE IF NOT EXISTS game_catalog (
     thumbnail_url VARCHAR(500) DEFAULT '',
     min_players   INTEGER DEFAULT 2,
     max_players   INTEGER DEFAULT 2,
+    developer_id  INTEGER REFERENCES developers(id) ON DELETE CASCADE,
     created_at    TIMESTAMPTZ DEFAULT NOW(),
     updated_at    TIMESTAMPTZ DEFAULT NOW(),
     is_active     BOOLEAN DEFAULT TRUE

@@ -10,26 +10,49 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 const BUCKET_NAME = 'game-assets' // Make sure this bucket exists in Supabase and is Public
 
+function getAllFiles(dirPath, arrayOfFiles) {
+  const files = fs.readdirSync(dirPath)
+  arrayOfFiles = arrayOfFiles || []
+
+  files.forEach(function(file) {
+    if (fs.statSync(dirPath + "/" + file).isDirectory()) {
+      arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles)
+    } else {
+      arrayOfFiles.push(path.join(dirPath, "/", file))
+    }
+  })
+  return arrayOfFiles
+}
+
 /**
  * Upload a directory recursively to Supabase Storage
  * @param {string} localDir - Absolute path to local directory
  * @param {string} storagePrefix - Path in Supabase bucket (e.g. 'games/slug')
  */
 async function uploadDirectory(localDir, storagePrefix) {
-  const files = fs.readdirSync(localDir, { recursive: true })
+  const files = getAllFiles(localDir);
   
-  for (const file of files) {
-    const fullPath = path.join(localDir, file)
-    if (fs.statSync(fullPath).isDirectory()) continue
+  for (const fullPath of files) {
+    const file = path.relative(localDir, fullPath);
 
     const storagePath = path.join(storagePrefix, file).replace(/\\/g, '/')
     const fileBuffer = fs.readFileSync(fullPath)
-    const contentType = mime.lookup(fullPath) || 'application/octet-stream'
+    let contentType = mime.lookup(fullPath) || 'application/octet-stream';
+    
+    // Explicitly enforce HTML MIME binding to prevent text/plain misinterpretations by cloud storage
+    if (fullPath.endsWith('.html')) {
+        contentType = 'text/html; charset=utf-8';
+    } else if (fullPath.endsWith('.css')) {
+        contentType = 'text/css; charset=utf-8';
+    } else if (fullPath.endsWith('.js')) {
+        contentType = 'application/javascript; charset=utf-8';
+    }
 
     const { error } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(storagePath, fileBuffer, {
         contentType,
+        cacheControl: '3600',
         upsert: true
       })
 

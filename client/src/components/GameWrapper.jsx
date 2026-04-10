@@ -31,17 +31,15 @@ export function GameWrapper({
     if (status !== 'connected' || isReconnecting) return;
 
     const handleIframeMessage = (event) => {
-      // Production Rule: Verify Origins if needed in the future
-      // if (event.origin !== targetOrigin) return;
+      // Security: Verify Origin matches the expected Supabase Bucket/Local Proxy
+      if (targetOrigin !== '*' && event.origin !== targetOrigin) return;
 
       if (typeof event.data === 'string') {
         try {
-          // Strict Validation: Must be valid JSON
           const parsed = JSON.parse(event.data);
-          // If valid, relay exactly as a JSON string over WebRTC
           sendMessage(JSON.stringify(parsed));
         } catch (error) {
-           // Silently ignore non-JSON junk like webpack/react devtools messages
+           // Ignore non-JSON
         }
       }
     };
