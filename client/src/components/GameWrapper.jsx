@@ -26,29 +26,40 @@ export function GameWrapper({
     }
   }, [gamePath]);
 
-  // --- A. OUTBOUND RELAY (Iframe -> WebRTC) ---
+  // --- A. HANDSHAKE (Platform -> Engine) ---
   useEffect(() => {
-    if (status !== 'connected' || isReconnecting) return;
+    if (status === 'connected' && iframeRef.current && !isReconnecting) {
+      const startSignal = { type: 'START', isHost: !!isHost };
+      setTimeout(() => {
+        if (iframeRef.current) {
+          iframeRef.current.contentWindow.postMessage(JSON.stringify(startSignal), targetOrigin);
+        }
+      }, 500); // Give iframe a moment to settle
+    }
+  }, [status, isHost, targetOrigin, isReconnecting]);
 
+  // --- B. OUTBOUND RELAY (Iframe -> WebRTC) ---
+  useEffect(() => {
     const handleIframeMessage = (event) => {
-      // Production Rule: Verify Origins if needed in the future
-      // if (event.origin !== targetOrigin) return;
-
       if (typeof event.data === 'string') {
         try {
-          // Strict Validation: Must be valid JSON
           const parsed = JSON.parse(event.data);
-          // If valid, relay exactly as a JSON string over WebRTC
-          sendMessage(JSON.stringify(parsed));
-        } catch (error) {
-           // Silently ignore non-JSON junk like webpack/react devtools messages
-        }
+          
+          if (parsed.type === 'READY' && status === 'connected') {
+            iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'START', isHost: !!isHost }), targetOrigin);
+            return;
+          }
+
+          if (status === 'connected' && !isReconnecting) {
+            sendMessage(JSON.stringify(parsed));
+          }
+        } catch (error) {}
       }
     };
 
     window.addEventListener('message', handleIframeMessage);
     return () => window.removeEventListener('message', handleIframeMessage);
-  }, [status, sendMessage, isReconnecting]);
+  }, [status, sendMessage, isReconnecting, isHost, targetOrigin]);
 
   // --- B. INBOUND RELAY (WebRTC -> Iframe) ---
   useEffect(() => {

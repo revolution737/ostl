@@ -101,8 +101,13 @@ function memMatch(gameId) {
 
   const p1 = queue.shift()
   const p2 = queue.shift()
-  const roomId = crypto.randomUUID()
 
+  // CRITICAL: Filter these players out of all other game queues to prevent ghost matches
+  for (const [gId, q] of memQueues) {
+    memQueues.set(gId, q.filter(p => p.uuid !== p1.uuid && p.uuid !== p2.uuid))
+  }
+
+  const roomId = crypto.randomUUID()
   console.log(`[matchmaking] [mem] matched ${p1.uuid} + ${p2.uuid} → room ${roomId}`)
 
   return {
