@@ -42,42 +42,50 @@ function registerHandlers(io) {
 
     // --- Matchmaking ---
     socket.on('find_match', async ({ gameId, displayName }) => {
-      const uuid = getUuid(socket.id)
-      if (!uuid) {
-        console.log(`[server] find_match: socket ${socket.id} not registered`)
-        return
-      }
+      try {
+        const uuid = getUuid(socket.id)
+        if (!uuid) {
+          console.log(`[server] find_match: socket ${socket.id} not registered`)
+          return
+        }
 
-      const match = await enqueue(gameId, uuid, displayName)
-      if (match) {
-        const { player1, p1Name, player2, p2Name, roomId } = match
+        const match = await enqueue(gameId, uuid, displayName)
+        if (match) {
+          const { player1, p1Name, player2, p2Name, roomId } = match
 
-        // create room + record match start time for duration tracking
-        createRoom(roomId, player1, player2, gameId)
-        recordMatchStart(roomId)
+          // create room + record match start time for duration tracking
+          createRoom(roomId, player1, player2, gameId)
+          recordMatchStart(roomId)
 
-        // get sockets and join them to the Socket.IO room
-        const s1 = getSocketId(player1)
-        const s2 = getSocketId(player2)
+          // get sockets and join them to the Socket.IO room
+          const s1 = getSocketId(player1)
+          const s2 = getSocketId(player2)
 
-        const sock1 = io.sockets.sockets.get(s1)
-        const sock2 = io.sockets.sockets.get(s2)
+          const sock1 = io.sockets.sockets.get(s1)
+          const sock2 = io.sockets.sockets.get(s2)
 
-        if (sock1) sock1.join(roomId)
-        if (sock2) sock2.join(roomId)
+          if (sock1) sock1.join(roomId)
+          if (sock2) sock2.join(roomId)
 
-        // emit match_found with opponent names mapped
-        io.to(s1).emit('match_found', { roomId, isHost: true, opponentName: p2Name })
-        io.to(s2).emit('match_found', { roomId, isHost: false, opponentName: p1Name })
+          // emit match_found with opponent names mapped
+          io.to(s1).emit('match_found', { roomId, isHost: true, opponentName: p2Name })
+          io.to(s2).emit('match_found', { roomId, isHost: false, opponentName: p1Name })
 
-        console.log(`[server] match_found emitted → room ${roomId}`)
+          console.log(`[server] match_found emitted → room ${roomId}`)
+        }
+      } catch (err) {
+        console.error(`[server] find_match error:`, err);
       }
     })
 
     socket.on('leave_queue', async () => {
-      const uuid = getUuid(socket.id)
-      if (uuid) {
-        await dequeue(uuid)
+      try {
+        const uuid = getUuid(socket.id)
+        if (uuid) {
+          await dequeue(uuid)
+        }
+      } catch (err) {
+        console.error(`[server] leave_queue error:`, err);
       }
     })
 
@@ -101,19 +109,23 @@ function registerHandlers(io) {
 
     // --- Disconnect ---
     socket.on('disconnect', async () => {
-      const uuid = getUuid(socket.id)
-      console.log(`[server] socket disconnected: ${socket.id} (uuid: ${uuid})`)
+      try {
+        const uuid = getUuid(socket.id)
+        console.log(`[server] socket disconnected: ${socket.id} (uuid: ${uuid})`)
 
-      if (uuid) {
-        await dequeue(uuid)
+        if (uuid) {
+          await dequeue(uuid)
 
-        const roomInfo = getRoomByPlayer(uuid)
-        if (roomInfo) {
-          startDisconnectTimer(uuid, roomInfo.roomId, io, getSocketId)
+          const roomInfo = getRoomByPlayer(uuid)
+          if (roomInfo) {
+            startDisconnectTimer(uuid, roomInfo.roomId, io, getSocketId)
+          }
+
+          // unregister the socket mapping but keep room alive for reconnect
+          unregisterPlayer(socket.id)
         }
-
-        // unregister the socket mapping but keep room alive for reconnect
-        unregisterPlayer(socket.id)
+      } catch (err) {
+        console.error(`[server] disconnect error:`, err);
       }
     })
   })

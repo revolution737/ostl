@@ -49,8 +49,20 @@ app.get('/api/debug', (req, res) => {
 // ─── Game Serving (uploaded + legacy games) ──────────────
 app.use(createGameServingMiddleware())
 
-// ─── Dev Test Harness ────────────────────────────────────
-app.use(express.static(path.join(__dirname, 'public')))
+// ─── Frontend Serving (React App) ──────────────────────────
+const clientDistPath = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDistPath));
+
+// SPA Fallback: Any unknown GET request (not an API) goes to React Router
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
+  res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
+    if (err) {
+      console.error('[server] SPA fallback sendFile error:', err);
+      if (!res.headersSent) res.status(500).send('Internal Server Error: Unable to serve index.html');
+    }
+  });
+});
 
 // ─── Socket.IO ───────────────────────────────────────────
 const server = http.createServer(app)

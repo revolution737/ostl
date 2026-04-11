@@ -24,15 +24,15 @@ export const SocketProvider = ({ children }) => {
     setUuid(storedUuid);
 
     // 2. Initialize Socket.IO connection
-    // In production, point to the Railway backend via env var
+    // Use the current hostname so LAN devices connect to the right server
     const serverUrl = import.meta.env.PROD
-      ? import.meta.env.VITE_SERVER_URL
+      ? '/'
       : `${window.location.protocol}//${window.location.hostname}:3000`;
 
     const socketInstance = io(serverUrl, {
-       transports: ['websocket', 'polling'],
-       reconnectionDelay: 1000,
-       reconnectionDelayMax: 5000,
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     socketInstance.on('connect', () => {
