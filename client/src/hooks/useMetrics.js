@@ -7,11 +7,12 @@ export function useMetrics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true; // Prevents state updates if the component unmounts
+
     async function fetchData() {
       try {
         const apiBase = import.meta.env.VITE_API_URL || "";
 
-        // Added proper response checking to prevent HTML parsing crashes
         const [gamesRes, debugRes] = await Promise.all([
           fetch(`${apiBase}/api/games`).then((res) => {
             if (!res.ok) throw new Error(`Games API returned ${res.status}`);
@@ -23,6 +24,8 @@ export function useMetrics() {
           }),
         ]);
 
+        if (!mounted) return;
+
         const debugData = debugRes;
         const totalRegistered = debugData.players?.length || 0;
 
@@ -30,12 +33,22 @@ export function useMetrics() {
 
         const mappedGames = (gamesRes.games || []).map((g) => {
           let gameActiveUsers = 0;
-          if (debugData.queues && debugData.queues[g.slug]) {
-            gameActiveUsers += debugData.queues[g.slug].length;
+
+          // 1. Count players waiting in the matchmaking queue
+          // Check both slug and ID in case different parts of the UI emit different identifiers
+          if (debugData.queues) {
+            const queueData =
+              debugData.queues[g.slug] || debugData.queues[g.id];
+            if (queueData) {
+              gameActiveUsers += queueData.length;
+            }
           }
-          if (debugData.rooms) {
-            Object.values(debugData.rooms).forEach((room) => {
-              if (room.gameSlug === g.slug) {
+
+          // 2. Count players currently in active game rooms
+          // CRITICAL FIX: The backend room object uses `gameId`, not `gameSlug`
+          if (Array.isArray(debugData.rooms)) {
+            debugData.rooms.forEach((room) => {
+              if (room.gameId === g.slug || room.gameId === g.id) {
                 gameActiveUsers += room.players ? room.players.length : 2;
               }
             });
@@ -64,14 +77,19 @@ export function useMetrics() {
       } catch (err) {
         console.error("Failed to fetch metrics", err);
       } finally {
-        // Even if it fails, we MUST stop loading so the UI doesn't hang
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     }
 
     fetchData();
+
+    // Poll the backend every 10 seconds for live updates
     const intval = setInterval(fetchData, 10000);
-    return () => clearInterval(intval);
+
+    return () => {
+      mounted = false;
+      clearInterval(intval);
+    };
   }, []);
 
   return { games, totalPlayers, totalActiveNow, loading };
