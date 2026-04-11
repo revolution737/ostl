@@ -9,15 +9,23 @@ export function useMetrics() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || '';
+        const apiBase = import.meta.env.VITE_API_URL || "";
+
+        // Added proper response checking to prevent HTML parsing crashes
         const [gamesRes, debugRes] = await Promise.all([
-          fetch(`${apiBase}/api/games`).then((res) => res.json()),
-          fetch(`${apiBase}/api/debug`).then((res) => res.json()),
+          fetch(`${apiBase}/api/games`).then((res) => {
+            if (!res.ok) throw new Error(`Games API returned ${res.status}`);
+            return res.json();
+          }),
+          fetch(`${apiBase}/api/debug`).then((res) => {
+            if (!res.ok) throw new Error(`Debug API returned ${res.status}`);
+            return res.json();
+          }),
         ]);
 
         const debugData = debugRes;
         const totalRegistered = debugData.players?.length || 0;
-        
+
         let allActiveNow = 0;
 
         const mappedGames = (gamesRes.games || []).map((g) => {
@@ -40,7 +48,9 @@ export function useMetrics() {
             slug: g.slug,
             name: g.title,
             description: g.description,
-            image: g.thumbnail_url || "https://images.unsplash.com/photo-1612385763901-68857dd4c43c?q=80&w=1080",
+            image:
+              g.thumbnail_url ||
+              "https://images.unsplash.com/photo-1612385763901-68857dd4c43c?q=80&w=1080",
             totalPlays: g.total_plays || 0,
             activePlayers: gameActiveUsers,
             status: "active",
@@ -49,11 +59,12 @@ export function useMetrics() {
         });
 
         setGames(mappedGames);
-        setTotalPlayers(totalRegistered || 1500); 
+        setTotalPlayers(totalRegistered || 1500);
         setTotalActiveNow(allActiveNow);
       } catch (err) {
         console.error("Failed to fetch metrics", err);
       } finally {
+        // Even if it fails, we MUST stop loading so the UI doesn't hang
         setLoading(false);
       }
     }
