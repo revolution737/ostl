@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
-import { v4 as uuidv4 } from 'uuid';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { io } from "socket.io-client";
+import { v4 as uuidv4 } from "uuid";
 
 const SocketContext = createContext(null);
 
@@ -15,35 +15,37 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     // 1. Manage ephemeral UUID
-    // Changed to sessionStorage so multiple browser tabs act as different players
-    let storedUuid = sessionStorage.getItem('ostl_uuid');
+    let storedUuid = sessionStorage.getItem("ostl_uuid");
     if (!storedUuid) {
       storedUuid = uuidv4();
-      sessionStorage.setItem('ostl_uuid', storedUuid);
+      sessionStorage.setItem("ostl_uuid", storedUuid);
     }
     setUuid(storedUuid);
 
     // 2. Initialize Socket.IO connection
-    // Use the current hostname so LAN devices connect to the right server
-    const serverUrl = import.meta.env.PROD
-      ? '/'
-      : `${window.location.protocol}//${window.location.hostname}:3000`;
+    // Safely fallback to window.location.origin for production monoliths
+    const serverUrl = import.meta.env.VITE_API_URL
+      ? import.meta.env.VITE_API_URL
+      : import.meta.env.PROD
+        ? window.location.origin
+        : `${window.location.protocol}//${window.location.hostname}:3000`;
 
     const socketInstance = io(serverUrl, {
-      transports: ['websocket', 'polling'],
+      // CRITICAL: Polling MUST be first for Railway/Nginx to handle the initial handshake
+      transports: ["polling", "websocket"],
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });
 
-    socketInstance.on('connect', () => {
-      console.log('[socket] Connected to server.', socketInstance.id);
+    socketInstance.on("connect", () => {
+      console.log("[socket] Connected to server.", socketInstance.id);
       setIsConnected(true);
       // Immediately register our ephemeral presence
-      socketInstance.emit('register', { uuid: storedUuid });
+      socketInstance.emit("register", { uuid: storedUuid });
     });
 
-    socketInstance.on('disconnect', () => {
-      console.log('[socket] Disconnected from server.');
+    socketInstance.on("disconnect", () => {
+      console.log("[socket] Disconnected from server.");
       setIsConnected(false);
     });
 

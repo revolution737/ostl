@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useSocket } from '../context/SocketProvider';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useSocket } from "../context/SocketProvider";
+import { Loader2 } from "lucide-react";
 
-export function Matchmaker({ onMatchFound }) {
+// Added gameId and displayName to props so we know what they are matching for
+export function Matchmaker({ onMatchFound, gameId, displayName }) {
   const { socket, uuid, isConnected } = useSocket();
   const [isSearching, setIsSearching] = useState(false);
 
@@ -10,33 +11,35 @@ export function Matchmaker({ onMatchFound }) {
     if (!socket) return;
 
     const handleMatchFound = ({ roomId, isHost }) => {
-      console.log('[matchmaker] Match found:', { roomId, isHost });
+      console.log("[matchmaker] Match found:", { roomId, isHost });
       setIsSearching(false);
       onMatchFound(roomId, isHost);
     };
 
     const handleRejoin = ({ roomId }) => {
-      console.log('[matchmaker] Rejoined room:', roomId);
-      // We don't know the exact host status on rejoin currently without extra backend logic, 
-      // but assuming guest is safer or we can rely on P2P handshake fallback.
-      // For now, let's treat rejoin as guest to listen to offers.
+      console.log("[matchmaker] Rejoined room:", roomId);
       setIsSearching(false);
       onMatchFound(roomId, false);
     };
 
-    socket.on('match_found', handleMatchFound);
-    socket.on('rejoin', handleRejoin);
+    socket.on("match_found", handleMatchFound);
+    socket.on("rejoin", handleRejoin);
 
     return () => {
-      socket.off('match_found', handleMatchFound);
-      socket.off('rejoin', handleRejoin);
+      socket.off("match_found", handleMatchFound);
+      socket.off("rejoin", handleRejoin);
     };
   }, [socket, onMatchFound]);
 
   const handleFindMatch = () => {
     if (!socket || !isConnected) return;
     setIsSearching(true);
-    socket.emit('find_match', { gameId: 'ostl_alpha' }); // Emitting generic game ID for now
+
+    // CRITICAL FIX: Emit the actual gameId and displayName, fallback to ostl_alpha if missing
+    socket.emit("find_match", {
+      gameId: gameId || "ostl_alpha",
+      displayName: displayName || "Anonymous Player",
+    });
   };
 
   return (
@@ -47,7 +50,7 @@ export function Matchmaker({ onMatchFound }) {
             Lobby Ready
           </h2>
           <p className="text-slate-400 mt-2 text-sm">
-            {isConnected ? 'Connected to signaling server.' : 'Connecting...'}
+            {isConnected ? "Connected to signaling server." : "Connecting..."}
           </p>
           <p className="text-xs text-slate-600 mt-1 uppercase tracking-widest break-all">
             ID: {uuid}
@@ -59,11 +62,11 @@ export function Matchmaker({ onMatchFound }) {
           disabled={!isConnected || isSearching}
           className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-all duration-300 flex items-center justify-center
             ${
-              isSearching 
-              ? 'bg-slate-700 cursor-not-allowed'
-              : !isConnected
-              ? 'bg-slate-800 opacity-50 cursor-not-allowed'
-              : 'bg-indigo-600 hover:bg-indigo-500 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:-translate-y-1'
+              isSearching
+                ? "bg-slate-700 cursor-not-allowed"
+                : !isConnected
+                  ? "bg-slate-800 opacity-50 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-500 hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:-translate-y-1"
             }`}
         >
           {isSearching ? (
@@ -72,7 +75,7 @@ export function Matchmaker({ onMatchFound }) {
               Searching...
             </>
           ) : (
-            'Find Match'
+            "Find Match"
           )}
         </button>
       </div>
