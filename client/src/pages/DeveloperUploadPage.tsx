@@ -215,6 +215,61 @@ export function DeveloperUploadPage() {
             </Button>
           </form>
         </motion.div>
+
+        {/* Developer Documentation */}
+        <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ duration: 0.6, delay: 0.2 }}
+           className="mt-12 bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl max-w-4xl mx-auto"
+        >
+          <h2 className="text-2xl font-bold text-white mb-6">OSTL WebRTC Sandbox Guidelines</h2>
+          <div className="space-y-6 text-slate-300 text-sm">
+            
+            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/50">
+              <h3 className="text-lg font-bold text-indigo-400 mb-2">1. Handshake (Initialization)</h3>
+              <p className="mb-4">When your game loads, the OSTL Platform will rapidly ping it with a <code className="bg-slate-800 text-pink-400 px-1 py-0.5 rounded">START</code> signal indicating the player's role (Host or Guest).</p>
+              <pre className="bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-400 font-mono text-xs border border-slate-800">
+{`window.addEventListener("message", (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === "START") {
+    const isHost = data.isHost; // true = Player 1, false = Player 2
+    // Acknowledge connection
+    window.parent.postMessage(JSON.stringify({ type: "READY" }), "*");
+  }
+});`}
+              </pre>
+            </div>
+
+            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/50">
+              <h3 className="text-lg font-bold text-indigo-400 mb-2">2. Sending & Receiving Moves</h3>
+              <p className="mb-2">Send all game states out to the platform using generic postMessages. OSTL will blindly route your payload to the opponent via WebRTC.</p>
+              <pre className="bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-400 font-mono text-xs border border-slate-800">
+{`// To send an action:
+window.parent.postMessage(JSON.stringify({ action: "FIRE", x: 100 }), "*");
+
+// To receive an action:
+window.addEventListener("message", (event) => {
+  const data = JSON.parse(event.data);
+  if (data.action === "FIRE") { ... }
+});`}
+              </pre>
+            </div>
+
+            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/50">
+              <h3 className="text-lg font-bold text-indigo-400 mb-2">3. Terminating the Game</h3>
+              <p className="mb-2">When the game ends, emit the <code className="bg-slate-800 text-pink-400 px-1 py-0.5 rounded">GAME_OVER</code> signal. OSTL will intercept this and surface the end-game menu (Rematch / Return Home) to the players natively.</p>
+              <pre className="bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-400 font-mono text-xs border border-slate-800">
+{`window.parent.postMessage(JSON.stringify({ 
+  type: "GAME_OVER", 
+  winner: "Host" // Must be "Host", "Guest", or "Draw"
+}), "*");`}
+              </pre>
+            </div>
+
+          </div>
+        </motion.div>
+
       </div>
     </div>
   );

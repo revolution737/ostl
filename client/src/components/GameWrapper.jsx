@@ -10,7 +10,9 @@ export function GameWrapper({
   messages,
   sendMessage,
   isReconnecting,
-  setOnGameData
+  setOnGameData,
+  gameKey,
+  onGameOver
 }) {
   const iframeRef = useRef(null);
 
@@ -52,6 +54,12 @@ export function GameWrapper({
             JSON.stringify({ type: 'START', isHost: !!isHost }), '*'
           );
         }
+        return;
+      }
+
+      // If the game emits a GAME_OVER status, relay to platform UI
+      if (data.type === 'GAME_OVER') {
+        if (onGameOver) onGameOver(data);
         return;
       }
 
@@ -115,6 +123,7 @@ export function GameWrapper({
           </div>
         )}
         <iframe
+          key={gameKey}
           ref={iframeRef}
           src={gamePath}
           className={`w-full h-full border-0 focus:outline-none transition-opacity duration-300 ${isReconnecting ? 'opacity-20 blur-sm pointer-events-none' : 'opacity-100'}`}

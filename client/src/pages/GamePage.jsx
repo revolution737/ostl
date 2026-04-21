@@ -12,6 +12,8 @@ import {
   WifiOff,
   Trophy,
   UserX,
+  Swords,
+  CheckCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -52,6 +54,10 @@ export function GamePage() {
   const scrollRef = useRef(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [reconnectKey, setReconnectKey] = useState(0);
+
+  const [gameKey, setGameKey] = useState(Date.now());
+  const [gameOverData, setGameOverData] = useState(null);
+  const [rematchState, setRematchState] = useState("idle");
 
   const { status, messages, sendMessage, setOnGameData } = useWebRTC(
     socket,
@@ -97,10 +103,34 @@ export function GamePage() {
         const d = JSON.parse(recent.data);
         if (d.type === "SYS_CHAT_STATUS") {
           setOpponentChatDisabled(d.disabled);
+        } else if (d.type === "SYS_REMATCH_REQ") {
+          if (rematchState === "requested_by_me") {
+             handleRematchAccepted();
+          } else {
+             setRematchState("requested_by_opponent");
+          }
+        } else if (d.type === "SYS_REMATCH_ACC") {
+          handleRematchAccepted();
         }
       } catch (e) {}
     }
-  }, [messages]);
+  }, [messages, rematchState]);
+
+  const handleRematchAccepted = () => {
+    setGameOverData(null);
+    setRematchState("idle");
+    setGameKey(Date.now());
+  };
+
+  const requestRematch = () => {
+    setRematchState("requested_by_me");
+    sendMessage(JSON.stringify({ type: "SYS_REMATCH_REQ" }));
+  };
+
+  const acceptRematch = () => {
+    sendMessage(JSON.stringify({ type: "SYS_REMATCH_ACC" }));
+    handleRematchAccepted();
+  };
 
   const toggleChat = () => {
     const nextState = !chatEnabled;
@@ -189,6 +219,17 @@ export function GamePage() {
             }}
           />
         )}
+        {gameOverData && (
+          <GameOverOverlay
+            winner={gameOverData.winner}
+            isHost={isHost}
+            opponentName={opponentName}
+            rematchState={rematchState}
+            onRequestRematch={requestRematch}
+            onAcceptRematch={acceptRematch}
+            onLeave={leaveMatch}
+          />
+        )}
       </AnimatePresence>
 
       <div className="flex-1 flex overflow-hidden">
@@ -204,6 +245,8 @@ export function GamePage() {
               sendMessage={sendMessage}
               isReconnecting={isReconnecting}
               setOnGameData={setOnGameData}
+              gameKey={gameKey}
+              onGameOver={(data) => setGameOverData(data)}
             />
           </div>
         </div>
@@ -416,6 +459,107 @@ function OpponentLeftOverlay({ opponentName, onLeave, onRetry }) {
             </button>
           </div>
         </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function GameOverOverlay({ winner, isHost, opponentName, rematchState, onRequestRematch, onAcceptRematch, onLeave }) {
+  const isWinner =
+    (winner === "Host" && isHost) || (winner === "Guest" && !isHost);
+  const isDraw = winner === "Draw";
+
+  const getTitle = () => {
+    if (isDraw) return "Match Drawn!";
+    return isWinner ? "Victory!" : "Defeat...";
+  };
+
+  const getSubtitle = () => {
+    if (isDraw) return "It was a hard-fought battle.";
+    return isWinner ? "You outplayed your opponent." : "Better luck next time.";
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8, y: 50 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.8, y: 50 }}
+        transition={{ type: "spring", damping: 25, stiffness: 300 }}
+        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-8 text-center border border-gray-100 dark:border-slate-800"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="mb-6 flex justify-center"
+        >
+          <div
+            className={`inline-block p-6 rounded-full shadow-lg ${
+              isDraw
+                ? "bg-gradient-to-br from-gray-400 to-gray-500 shadow-gray-500/30"
+                : isWinner
+                  ? "bg-gradient-to-br from-emerald-400 to-emerald-500 shadow-emerald-500/30"
+                  : "bg-gradient-to-br from-red-400 to-red-500 shadow-red-500/30"
+            }`}
+          >
+            {isDraw ? (
+              <Swords className="w-16 h-16 text-white" />
+            ) : isWinner ? (
+              <Trophy className="w-16 h-16 text-white" />
+            ) : (
+              <X className="w-16 h-16 text-white" />
+            )}
+          </div>
+        </motion.div>
+
+        <h3 className="text-4xl font-extrabold mb-2 text-gray-800 dark:text-white">
+          {getTitle()}
+        </h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-8 font-medium">
+          {getSubtitle()}
+        </p>
+
+        {rematchState === "requested_by_opponent" ? (
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-100 dark:border-blue-800/30 mb-6">
+            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-4">
+              {opponentName} requested a rematch!
+            </p>
+            <button
+              onClick={onAcceptRematch}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30 transition-all"
+            >
+              <Swords size={18} /> Accept Rematch
+            </button>
+          </div>
+        ) : rematchState === "requested_by_me" ? (
+          <div className="bg-gray-50 dark:bg-slate-800/50 rounded-2xl p-6 mb-6">
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium flex items-center justify-center gap-2">
+              <CheckCircle size={16} className="text-emerald-500" /> Waiting for {opponentName}...
+            </p>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <button
+              onClick={onRequestRematch}
+              className="w-full py-3.5 bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+            >
+              <RefreshCw size={18} /> Request Rematch
+            </button>
+          </div>
+        )}
+
+        <button
+          onClick={onLeave}
+          className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-slate-950 dark:hover:bg-slate-800/80 text-gray-700 dark:text-gray-300 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+        >
+          <LogOut size={18} /> Leave Match
+        </button>
       </motion.div>
     </motion.div>
   );
