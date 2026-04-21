@@ -61,6 +61,8 @@
           paused = false;
           document.getElementById('waiting').style.display = 'none';
           updateStatus();
+          // Ask the opponent over P2P if they already have an ongoing board in memory
+          send({ type: 'REQUEST_SYNC' });
         }
 
         if (data.type === 'MOVE' && gameStarted && !paused) {
@@ -80,6 +82,32 @@
           paused = false;
           updateStatus();
         }
+
+        // P2P State Recovery Hooks (Crash Hydration)
+        if (data.type === 'REQUEST_SYNC' && gameStarted) {
+          // They booted up. Give them our memory.
+          send({ type: 'SYNC_STATE', board, xHistory, oHistory, winner, winLine });
+        }
+
+        if (data.type === 'SYNC_STATE') {
+          // If the opponent sent us an empty board (i.e. also just booted), ignore tracking.
+          const isEmpty = data.board.every(cell => cell === null);
+          if (isEmpty) return;
+
+          board = data.board;
+          xHistory = data.xHistory;
+          oHistory = data.oHistory;
+          winner = data.winner;
+          winLine = data.winLine;
+          
+          // Mathematically derive whose turn it is natively
+          const xCount = board.filter(c => c === 'X').length;
+          const oCount = board.filter(c => c === 'O').length;
+          if (mySymbol === 'X') myTurn = (xCount === oCount);
+          else myTurn = (xCount > oCount);
+
+          updateStatus();
+        }
       } catch(e) {}
     });
 
@@ -91,12 +119,12 @@
       }, 1000);
     }
 
-    // --- Click Handler ---
-    canvas.addEventListener('mousedown', (e) => {
+    // --- Click Handlers ---
+    const handleClick = (clientX, clientY) => {
       if (!myTurn || !gameStarted || winner || paused) return;
       const rect = canvas.getBoundingClientRect();
-      const col = Math.floor((e.clientX - rect.left) / (400 / 3));
-      const row = Math.floor((e.clientY - rect.top) / (400 / 3));
+      const col = Math.floor((clientX - rect.left) / (400 / 3));
+      const row = Math.floor((clientY - rect.top) / (400 / 3));
       const index = row * 3 + col;
       if (index < 0 || index > 8 || board[index] !== null) return;
 
@@ -106,7 +134,17 @@
       send({ type: 'MOVE', index: index });
       myTurn = false;
       updateStatus();
+    };
+
+    canvas.addEventListener('mousedown', (e) => {
+      handleClick(e.clientX, e.clientY);
     });
+
+    // Native mobile touch hydration
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handleClick(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: false });
 
     function placepiece(index, symbol) {
       board[index] = symbol;

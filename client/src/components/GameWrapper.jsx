@@ -121,88 +121,9 @@ export function GameWrapper({
     return () => setOnGameData(null);
   }, [setOnGameData]);
 
-  // --- D. TOUCH → MOUSE BRIDGE (mobile only) ---
-  // A transparent overlay div sits on top of the iframe on mobile screens.
-  // It captures all touch events and translates them into synthetic MouseEvents
-  // dispatched directly into the iframe's document, making desktop-only
-  // HTML5 game engines fully playable with finger taps and drags.
-  // Long-press (500ms) fires a right-click / contextmenu for rotate mechanics.
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const iframe  = iframeRef.current;
-    if (!overlay || !iframe) return;
-
-    let longPressTimer = null;
-
-    const getIframeDoc = () => {
-      try { return iframe.contentDocument || iframe.contentWindow?.document; }
-      catch (e) { return null; }
-    };
-
-    // Convert a Touch's page coordinates to iframe-local coordinates
-    const iframePoint = (touch) => {
-      const rect = iframe.getBoundingClientRect();
-      return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top,
-      };
-    };
-
-    // Dispatch a synthetic MouseEvent at the element underneath the finger
-    const fire = (type, touch, button = 0) => {
-      const doc = getIframeDoc();
-      if (!doc) return;
-      const { x, y } = iframePoint(touch);
-      const el = doc.elementFromPoint(x, y) || doc.body;
-      el.dispatchEvent(new MouseEvent(type, {
-        bubbles: true, cancelable: true,
-        view: iframe.contentWindow,
-        clientX: x, clientY: y,
-        screenX: touch.screenX, screenY: touch.screenY,
-        button,
-        buttons: (type === 'mouseup' || type === 'click') ? 0
-               : button === 2 ? 2 : 1,
-      }));
-    };
-
-    const onTouchStart = (e) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      fire('mousemove', touch);
-      fire('mousedown', touch);
-
-      // Long-press (500ms) → right-click / contextmenu
-      longPressTimer = setTimeout(() => {
-        fire('mouseup',     touch);
-        fire('contextmenu', touch, 2);
-      }, 500);
-    };
-
-    const onTouchMove = (e) => {
-      e.preventDefault();
-      clearTimeout(longPressTimer);
-      fire('mousemove', e.touches[0]);
-    };
-
-    const onTouchEnd = (e) => {
-      e.preventDefault();
-      clearTimeout(longPressTimer);
-      const touch = e.changedTouches[0];
-      fire('mouseup', touch);
-      fire('click',   touch);
-    };
-
-    overlay.addEventListener('touchstart', onTouchStart, { passive: false });
-    overlay.addEventListener('touchmove',  onTouchMove,  { passive: false });
-    overlay.addEventListener('touchend',   onTouchEnd,   { passive: false });
-
-    return () => {
-      clearTimeout(longPressTimer);
-      overlay.removeEventListener('touchstart', onTouchStart);
-      overlay.removeEventListener('touchmove',  onTouchMove);
-      overlay.removeEventListener('touchend',   onTouchEnd);
-    };
-  }, [gameKey]); // re-attach when iframe remounts on new game / rematch
+  // --- D. DEPRECATED TOUCH MOUSE BRIDGE ---
+  // The synthetic DOM MouseEvent proxy pipeline was completely removed as it mathematically breaks down against strictly enforced CORS security layers during web deployments of foreign `<iframe />` source paths. 
+  // Mobile Touch tracking has instead been naturally delegated to directly trigger on standard `touchstart/touchmove/touchend` listeners inside the proprietary Game Engines natively.
 
   return (
     <div className="flex flex-col flex-1 h-full w-full bg-slate-900 overflow-hidden relative border-r border-slate-800 shadow-2xl">
@@ -227,15 +148,6 @@ export function GameWrapper({
           allow="fullscreen"
         />
 
-        {/* Touch bridge overlay — mobile only (hidden on md+).
-            Sits above the iframe, captures touch events, translates to
-            synthetic mouse events dispatched into the iframe's document. */}
-        <div
-          ref={overlayRef}
-          className={`absolute inset-0 md:hidden ${isReconnecting ? 'pointer-events-none' : ''}`}
-          style={{ touchAction: 'none', zIndex: 5 }}
-          aria-hidden="true"
-        />
       </div>
     </div>
   );
