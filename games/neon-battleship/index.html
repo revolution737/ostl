@@ -253,6 +253,13 @@
     let opponentFleetReady = false;
     let myFleetConfirmed = false;
 
+    // Secret storage for P2P crash recovery
+    let myInitialGrid = null;
+    let myInitialShips = null;
+    let opponentInitialGrid = null;
+    let opponentInitialShips = null;
+    let opponentShipPlaced = null;
+
     // Placement state
     let selectedShipId = null;
     let horizontal = true;
@@ -380,6 +387,16 @@
       buildTray();
       clearPreview();
 
+      // P2P save partial deployment
+      myInitialGrid = myGrid.slice();
+      myInitialShips = JSON.parse(JSON.stringify(myShips));
+      send({ 
+        type: 'PARTIAL_FLEET', 
+        partialGrid: myInitialGrid, 
+        partialShips: myInitialShips,
+        partialPlaced: Object.assign({}, shipPlaced)
+      });
+
       // All ships placed?
       if (SHIPS.every(s => shipPlaced[s.id])) {
         confirmBtn.classList.add('visible');
@@ -390,7 +407,13 @@
     confirmBtn.addEventListener('click', () => {
       if (!SHIPS.every(s => shipPlaced[s.id])) return;
       myFleetConfirmed = true;
-      send({ type: 'FLEET_READY' });
+      myInitialGrid = myGrid.slice();
+      myInitialShips = JSON.parse(JSON.stringify(myShips));
+      send({ 
+        type: 'FLEET_READY', 
+        initialGrid: myInitialGrid, 
+        initialShips: myInitialShips 
+      });
       confirmBtn.classList.remove('visible');
       tray.style.display = 'none';
       rotateHint.style.display = 'none';
@@ -547,10 +570,20 @@
           paused = false;
           overlay.classList.add('hidden');
           enterPlacementPhase();
+          // Ask opponent for their state in case we're the one who refreshed
+          send({ type: 'REQUEST_SYNC' });
+          break;
+
+        case 'PARTIAL_FLEET':
+          opponentInitialGrid = msg.partialGrid;
+          opponentInitialShips = msg.partialShips;
+          opponentShipPlaced = msg.partialPlaced;
           break;
 
         case 'FLEET_READY':
           opponentFleetReady = true;
+          if (msg.initialGrid) opponentInitialGrid = msg.initialGrid;
+          if (msg.initialShips) opponentInitialShips = msg.initialShips;
           if (myFleetConfirmed) startBattle();
           break;
 
@@ -561,10 +594,10 @@
           break;
 
         case 'SHOT_RESULT':
-          // Our shot result came back
+          // Our shot result came back — just update visuals.
+          // Turn stays with opponent until they fire back at us.
           if (phase !== 'battle') return;
           applyMyShot(msg.row, msg.col, msg.result);
-          myTurn = true;
           renderAllCells();
           renderHUD();
           break;
@@ -580,8 +613,130 @@
           renderAllCells();
           renderHUD();
           break;
+
+        // ── P2P Crash Hydration ──────────────────────────────
+        case 'REQUEST_SYNC':
+          if (started) {
+            send({
+              type: 'SYNC_STATE',
+              phase: phase,
+              myTurn: myTurn,
+              myFleetConfirmed: myFleetConfirmed,
+              opponentFleetReady: opponentFleetReady,
+              // B's current volatile state overrides
+              b_myGrid: myGrid.slice(),
+              b_enemyGrid: enemyGrid.slice(),
+              b_shipPlaced: Object.assign({}, shipPlaced),
+              // B sends everything back so A can recover
+              b_initialGrid: myInitialGrid,
+              b_initialShips: myInitialShips,
+              a_initialGrid: opponentInitialGrid,
+              a_initialShips: opponentInitialShips,
+              a_shipPlaced: opponentShipPlaced
+            });
+          }
+          break;
+
+        case 'SYNC_STATE':
+          hydrateSyncState(msg);
+          break;
       }
     });
+
+    // ── P2P Hydration Logic ─────────────────────────────────────
+    function hydrateSyncState(s) {
+      if (s.phase === 'placing' && !s.opponentFleetReady) {
+        // We were still placing when we crashed. Restore our partial placement.
+        if (s.a_initialGrid && s.a_initialShips && s.a_shipPlaced) {
+          myInitialGrid = s.a_initialGrid;
+          myInitialShips = s.a_initialShips;
+          shipPlaced = s.a_shipPlaced;
+
+          myGrid.length = 0;
+          myInitialGrid.forEach(v => myGrid.push(v));
+          
+          myShips.length = 0;
+          s.a_initialShips.forEach(sh => myShips.push(sh));
+
+          renderAllCells();
+          buildTray();
+
+          if (SHIPS.every(sh => shipPlaced[sh.id])) {
+            confirmBtn.classList.add('visible');
+          }
+        }
+        return; // Keep placing normally
+      }
+      
+      // Inherit state variables
+      phase = s.phase;
+      myTurn = !s.myTurn;
+      myFleetConfirmed = s.opponentFleetReady;
+      opponentFleetReady = s.myFleetConfirmed;
+      
+      // Save opponent's initial state (in case they crash later)
+      opponentInitialGrid = s.b_initialGrid;
+      opponentInitialShips = s.b_initialShips;
+
+      // Recover our initial state
+      myInitialGrid = s.a_initialGrid;
+      myInitialShips = s.a_initialShips;
+
+      if (myInitialGrid && myInitialShips) {
+        // Hydrate our board base
+        myGrid.length = 0;
+        myInitialGrid.forEach(v => myGrid.push(v));
+        
+        myShips.length = 0;
+        s.a_initialShips.forEach(sh => myShips.push(sh));
+        
+        // We figure out which cells the opponent shot by looking at their myGrid
+        // They sent their b_myGrid: any cell that is 'hit', 'miss', or 'sunk' 
+        // Reconstruct our board from their shots (s.b_enemyGrid)
+        for(let i = 0; i < 100; i++) {
+          const theirShot = s.b_enemyGrid[i];
+          if(theirShot === 'hit' || theirShot === 'sunk') {
+            myGrid[i] = theirShot;
+            for(const ship of myShips) {
+              if(ship.cells.includes(i)) {
+                ship.hits++;
+                break;
+              }
+            }
+          } else if(theirShot === 'miss') {
+            myGrid[i] = 'miss';
+          }
+        }
+      }
+
+      // Reconstruct our damage tracking on the enemy (s.b_myGrid contains our shots)
+      myHitsOnEnemy = 0;
+      if (s.b_myGrid) {
+        for(let i = 0; i < 100; i++) {
+          const v = s.b_myGrid[i];
+          if(v === 'hit' || v === 'sunk') {
+            enemyGrid[i] = v;
+            myHitsOnEnemy++;
+          } else if(v === 'miss') {
+            enemyGrid[i] = 'miss';
+          } else {
+            enemyGrid[i] = null;
+          }
+        }
+      }
+      
+      if (myFleetConfirmed) {
+        tray.style.display = 'none';
+        rotateHint.style.display = 'none';
+        confirmBtn.classList.remove('visible');
+        phaseLabel.textContent = s.phase === 'battle' ? '' : 'Waiting for opponent to deploy...';
+      }
+
+      renderAllCells();
+      renderHUD();
+    }
+
+
 
     // ── Placement Phase Entry ────────────────────────────────────
     function enterPlacementPhase() {

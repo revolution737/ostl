@@ -825,6 +825,8 @@ window.addEventListener('message', (evt) => {
     case 'START':
       if (state.started) return;
       initGame(msg.isHost);
+      // Ask opponent for their state in case we're the one who refreshed
+      sendUp({ type: 'REQUEST_SYNC' });
       break;
     
     case 'GAME_ACTION':
@@ -844,8 +846,54 @@ window.addEventListener('message', (evt) => {
       state.paused = false;
       renderAll();
       break;
+
+    // ── P2P Crash Hydration ──────────────────────────────────────
+    case 'REQUEST_SYNC':
+      if (state.started) {
+        // Send our full game state to the refreshed opponent
+        sendUp({
+          type: 'SYNC_STATE',
+          units: JSON.parse(JSON.stringify(state.units)),
+          myTurn: state.myTurn,
+          gameOver: state.gameOver,
+          logs: state.logs.slice()
+        });
+      }
+      break;
+
+    case 'SYNC_STATE':
+      hydrateSyncState(msg);
+      break;
   }
 });
+
+// ── P2P Hydration Logic ──────────────────────────────────────────
+function hydrateSyncState(s) {
+  // The sync payload is from the OPPONENT's perspective.
+  // Unit positions/HP are shared state — both players see the same board.
+  // The only thing that changes between perspectives is:
+  //   - "myTurn" is flipped
+  //   - "myColor" / "enemyColor" are already set correctly by initGame()
+
+  // If the board is still at initial positions, ignore (both just booted)
+  if (!s.units || s.units.length === 0) return;
+
+  // Restore all unit state from opponent's memory
+  state.units = s.units;
+  state.gameOver = s.gameOver;
+  state.logs = s.logs || [];
+
+  // The opponent sent THEIR myTurn — ours is the opposite
+  state.myTurn = !s.myTurn;
+
+  // Clear selection state
+  state.selectedUid = null;
+  state.actionMode = null;
+
+  logMsg('State recovered from opponent.', 'sys');
+  renderAll();
+  renderLog();
+}
 
 // Start checking in with Platform
 if (window.parent !== window) {
