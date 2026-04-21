@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Users, PlayCircle, Activity, Globe, TrendingUp, Edit, X } from "lucide-react";
+import { ArrowLeft, Users, PlayCircle, Activity, TrendingUp, Edit, X } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
