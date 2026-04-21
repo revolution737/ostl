@@ -131,9 +131,19 @@ export function GameWrapper({
       <div className="flex-1 w-full relative bg-slate-950 overflow-hidden">
         {status !== 'connected' && !isReconnecting && (
           <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center z-20 backdrop-blur-md">
-            <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-indigo-500 border-b-transparent rounded-full animate-spin mb-4 shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
-            <div className="text-slate-200 font-bold uppercase tracking-widest text-xs md:text-sm mb-1">Authenticating Payload</div>
-            <div className="text-slate-500 text-[10px] font-mono tracking-widest uppercase">Waiting for Engine Pipe...</div>
+            {status === 'failed' ? (
+              <>
+                <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-red-500 rounded-full mb-4 shadow-[0_0_15px_rgba(239,68,68,0.5)] flex items-center justify-center text-red-500 font-bold">X</div>
+                <div className="text-red-400 font-bold uppercase tracking-widest text-xs md:text-sm mb-1">NAT Traversal Failed</div>
+                <div className="text-red-500 text-[10px] font-mono tracking-widest uppercase">Strict Firewall/Mobile Network block</div>
+              </>
+            ) : (
+              <>
+                <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-indigo-500 border-b-transparent rounded-full animate-spin mb-4 shadow-[0_0_15px_rgba(99,102,241,0.5)]"></div>
+                <div className="text-slate-200 font-bold uppercase tracking-widest text-xs md:text-sm mb-1">Authenticating Payload</div>
+                <div className="text-slate-500 text-[10px] font-mono tracking-widest uppercase">Waiting for Engine Pipe...</div>
+              </>
+            )}
           </div>
         )}
 
