@@ -16,48 +16,8 @@ export function GameWrapper({
 }) {
   const iframeRef    = useRef(null);
   const overlayRef   = useRef(null);
-  // Tracks whether START has already been sent for this game session.
-  // Reset whenever gameKey changes (rematch / new game).
-  const startSentRef = useRef(false);
-
-  // Reset the guard whenever a new game session begins.
-  useEffect(() => {
-    startSentRef.current = false;
-  }, [gameKey]);
-
-  // Helper: send START exactly once per session.
-  const sendStart = (iframeWindow) => {
-    if (startSentRef.current) return;
-    startSentRef.current = true;
-    iframeWindow.postMessage(JSON.stringify({ type: 'START', isHost: !!isHost }), '*');
-  };
-
   // --- A. HANDSHAKE (Platform -> Engine) ---
-  // Poll every 800 ms until the game acknowledges via READY (or until START is sent).
-  // Once START is delivered, the interval stops immediately — no duplicate signals.
-  useEffect(() => {
-    if (status !== 'connected' || !iframeRef.current || isReconnecting) return;
-    if (startSentRef.current) return;
-
-    // Use a mutable ref for the interval ID so tryStart can clear it
-    // without hitting a temporal dead zone (const iv would be uninitialized
-    // when tryStart() is called on the very first tick).
-    let ivId = null;
-
-    const tryStart = () => {
-      if (!iframeRef.current?.contentWindow) return;
-      sendStart(iframeRef.current.contentWindow);
-      clearInterval(ivId);
-    };
-
-    // First attempt immediately, then retry every 800 ms up to ~15 s.
-    tryStart();
-    ivId = setInterval(tryStart, 800);
-    const timeoutId = setTimeout(() => clearInterval(ivId), 15000);
-
-    return () => { clearInterval(ivId); clearTimeout(timeoutId); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, isReconnecting, gameKey]);
+  // The Game Engines natively blast their own `READY` telemetry pulses on a 1000ms loop infinitely until they successfully ingest the `START` configuration payload. We defer completely to their pulse loops instead of aggressively polling blindly into uninitialized iframes.
 
   // --- DYNAMIC ENGINE PAUSING ---
   // Fires lifecycle events natively to the game engines telling them to stall internal mechanics
@@ -80,11 +40,10 @@ export function GameWrapper({
       }
       if (!data || !data.type) return;
 
-      // If the game says READY, try to deliver START (guard ensures it fires only once).
-      // This handles the case where the iframe loads AFTER the WebRTC channel is open.
+      // If the game says READY, actively reply directly to its pulse loop with START ruleset.
       if (data.type === 'READY') {
         if (status === 'connected' && iframeRef.current?.contentWindow) {
-          sendStart(iframeRef.current.contentWindow);
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'START', isHost: !!isHost }), '*');
         }
         return;
       }
