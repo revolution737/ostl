@@ -35,11 +35,10 @@ export const SocketProvider = ({ children }) => {
   });
   
   const [isConnected, setIsConnected] = useState(false);
-  const [rejoinData, setRejoinData] = useState(null);
 
   useEffect(() => {
 
-    // 2. Initialize Socket.IO connection
+    // Initialize Socket.IO connection
     // Safely fallback to window.location.origin for production monoliths
     const serverUrl = import.meta.env.VITE_API_URL
       ? import.meta.env.VITE_API_URL
@@ -66,10 +65,6 @@ export const SocketProvider = ({ children }) => {
       setIsConnected(false);
     });
 
-    socketInstance.on("rejoin", (data) => {
-      setRejoinData(data);
-    });
-
     setSocket(socketInstance);
 
     return () => {
@@ -78,7 +73,7 @@ export const SocketProvider = ({ children }) => {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, uuid, isConnected, rejoinData }}>
+    <SocketContext.Provider value={{ socket, uuid, isConnected }}>
       {children}
     </SocketContext.Provider>
   );
