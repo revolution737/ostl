@@ -14,27 +14,50 @@ export function GameWrapper({
   gameKey,
   onGameOver
 }) {
-  const iframeRef  = useRef(null);
-  const overlayRef = useRef(null);
+  const iframeRef    = useRef(null);
+  const overlayRef   = useRef(null);
+  // Tracks whether START has already been sent for this game session.
+  // Reset whenever gameKey changes (rematch / new game).
+  const startSentRef = useRef(false);
+
+  // Reset the guard whenever a new game session begins.
+  useEffect(() => {
+    startSentRef.current = false;
+  }, [gameKey]);
+
+  // Helper: send START exactly once per session.
+  const sendStart = (iframeWindow) => {
+    if (startSentRef.current) return;
+    startSentRef.current = true;
+    iframeWindow.postMessage(JSON.stringify({ type: 'START', isHost: !!isHost }), '*');
+  };
 
   // --- A. HANDSHAKE (Platform -> Engine) ---
-  // When connected, keep sending START until the game acknowledges via READY
+  // Poll every 800 ms until the game acknowledges via READY (or until START is sent).
+  // Once START is delivered, the interval stops immediately — no duplicate signals.
   useEffect(() => {
     if (status !== 'connected' || !iframeRef.current || isReconnecting) return;
+    if (startSentRef.current) return;
 
-    const startSignal = JSON.stringify({ type: 'START', isHost: !!isHost });
+    // Use a mutable ref for the interval ID so tryStart can clear it
+    // without hitting a temporal dead zone (const iv would be uninitialized
+    // when tryStart() is called on the very first tick).
+    let ivId = null;
 
-    const send = () => {
-      if (iframeRef.current && iframeRef.current.contentWindow) {
-        iframeRef.current.contentWindow.postMessage(startSignal, '*');
-      }
+    const tryStart = () => {
+      if (!iframeRef.current?.contentWindow) return;
+      sendStart(iframeRef.current.contentWindow);
+      clearInterval(ivId);
     };
-    send();
-    const iv = setInterval(send, 1000);
-    const timeout = setTimeout(() => clearInterval(iv), 10000);
 
-    return () => { clearInterval(iv); clearTimeout(timeout); };
-  }, [status, isHost, isReconnecting]);
+    // First attempt immediately, then retry every 800 ms up to ~15 s.
+    tryStart();
+    ivId = setInterval(tryStart, 800);
+    const timeoutId = setTimeout(() => clearInterval(ivId), 15000);
+
+    return () => { clearInterval(ivId); clearTimeout(timeoutId); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, isReconnecting, gameKey]);
 
   // --- DYNAMIC ENGINE PAUSING ---
   // Fires lifecycle events natively to the game engines telling them to stall internal mechanics
@@ -57,12 +80,11 @@ export function GameWrapper({
       }
       if (!data || !data.type) return;
 
-      // If the game says READY, respond with START
+      // If the game says READY, try to deliver START (guard ensures it fires only once).
+      // This handles the case where the iframe loads AFTER the WebRTC channel is open.
       if (data.type === 'READY') {
-        if (status === 'connected' && iframeRef.current && iframeRef.current.contentWindow) {
-          iframeRef.current.contentWindow.postMessage(
-            JSON.stringify({ type: 'START', isHost: !!isHost }), '*'
-          );
+        if (status === 'connected' && iframeRef.current?.contentWindow) {
+          sendStart(iframeRef.current.contentWindow);
         }
         return;
       }
@@ -81,7 +103,8 @@ export function GameWrapper({
 
     window.addEventListener('message', handleIframeMessage);
     return () => window.removeEventListener('message', handleIframeMessage);
-  }, [status, sendMessage, isReconnecting, isHost]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, sendMessage, isReconnecting, gameKey]);
 
   // --- C. INBOUND RELAY (WebRTC from Opponent -> Game Iframe) ---
   // This uses a DIRECT CALLBACK from the WebRTC data channel,

@@ -55,7 +55,7 @@ export function GameListingPage() {
     if (!socket || !isConnected || !selectedGame) return;
 
     // Clear any stale match session so GamePage doesn't hydrate an old room
-    sessionStorage.removeItem('ostl_match_state');
+    localStorage.removeItem('ostl_match_state');
 
     const finalName =
       displayName.trim() ||

@@ -129,6 +129,7 @@
     let myTurn = false;
     let gameStarted = false;
     let selectedSquare = null;
+    let paused = false; // set by PAUSE_GAME / RESUME_GAME
 
     const PIECES = {
       'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
@@ -169,7 +170,7 @@
     }
 
     function handleSquareClick(r, c) {
-      if (!myTurn) return;
+      if (!myTurn || paused) return;
 
       const piece = boardState[r][c];
       const isMyPiece = piece && (myColor === 'white' ? piece === piece.toUpperCase() : piece === piece.toLowerCase());
@@ -185,6 +186,7 @@
 
         // Simple move logic (no validation for this proof of concept)
         const movingPiece = boardState[prev.r][prev.c];
+        const captured = boardState[r][c];
         boardState[r][c] = movingPiece;
         boardState[prev.r][prev.c] = '';
         
@@ -194,6 +196,12 @@
         myTurn = false;
         renderBoard();
         updateUI();
+
+        // King captured = game over
+        if (captured && captured.toLowerCase() === 'k') {
+          const whoWon = myColor === 'white' ? 'Host' : 'Guest';
+          send({ type: 'GAME_OVER', winner: whoWon });
+        }
       } else if (isMyPiece) {
         selectedSquare = {r, c};
         renderBoard();
@@ -217,6 +225,7 @@
           myColor = isHost ? 'white' : 'black';
           myTurn = isHost;
           gameStarted = true;
+          paused = false;
           document.getElementById('waiting').style.display = 'none';
           updateUI();
           renderBoard();
@@ -224,6 +233,7 @@
 
         if (data.type === 'MOVE') {
           const { from, to } = data;
+          const captured = boardState[to.r][to.c];
           boardState[to.r][to.c] = boardState[from.r][from.c];
           boardState[from.r][from.c] = '';
           myTurn = true;
@@ -231,15 +241,36 @@
           renderBoard();
           document.getElementById(`s-${from.r}-${from.c}`).classList.add('last-move');
           document.getElementById(`s-${to.r}-${to.c}`).classList.add('last-move');
+          // Opponent's king captured = game over
+          if (captured && captured.toLowerCase() === 'k') {
+            const whoWon = myColor === 'white' ? 'Guest' : 'Host';
+            send({ type: 'GAME_OVER', winner: whoWon });
+          }
+        }
+
+        if (data.type === 'PAUSE_GAME') {
+          paused = true;
+          updateUI();
+        }
+
+        if (data.type === 'RESUME_GAME') {
+          paused = false;
+          updateUI();
         }
       } catch(e) {}
     });
 
     function updateUI() {
       const status = document.getElementById('turn');
-      status.innerText = myTurn ? "YOUR TURN" : "WAITING FOR OPPONENT";
-      status.style.borderColor = myTurn ? 'var(--accent)' : '#333';
-      status.style.color = myTurn ? 'var(--accent)' : '#666';
+      if (paused) {
+        status.innerText = 'OPPONENT RECONNECTING...';
+        status.style.borderColor = '#f97316';
+        status.style.color = '#f97316';
+      } else {
+        status.innerText = myTurn ? 'YOUR TURN' : 'WAITING FOR OPPONENT';
+        status.style.borderColor = myTurn ? 'var(--accent)' : '#333';
+        status.style.color = myTurn ? 'var(--accent)' : '#666';
+      }
     }
 
     initBoard();

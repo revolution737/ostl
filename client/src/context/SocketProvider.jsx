@@ -14,7 +14,10 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // 1. Manage ephemeral UUID
+    // UUID lives in sessionStorage so each browser TAB gets its own identity.
+    // This is critical for two-tab local testing — localStorage would make both
+    // tabs share the same UUID, causing matchmaking deduplication to reject one.
+    // The ostl_match_state reconnection payload (in localStorage) handles crash recovery.
     let storedUuid = sessionStorage.getItem("ostl_uuid");
     if (!storedUuid) {
       storedUuid = uuidv4();

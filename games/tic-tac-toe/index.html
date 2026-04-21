@@ -38,6 +38,7 @@
     let gameStarted = false;
     let winner = null;
     let winLine = null;
+    let paused = false; // set by PAUSE_GAME / RESUME_GAME
 
     // --- Bridge ---
     function send(data) {
@@ -57,15 +58,26 @@
           gameStarted = true;
           mySymbol = (data.isHost === true) ? 'X' : 'O';
           myTurn = (data.isHost === true); // X goes first
+          paused = false;
           document.getElementById('waiting').style.display = 'none';
           updateStatus();
         }
 
-        if (data.type === 'MOVE' && gameStarted) {
+        if (data.type === 'MOVE' && gameStarted && !paused) {
           // Opponent placed their piece
           const oppSymbol = (mySymbol === 'X') ? 'O' : 'X';
           placepiece(data.index, oppSymbol);
           myTurn = true;
+          updateStatus();
+        }
+
+        if (data.type === 'PAUSE_GAME') {
+          paused = true;
+          updateStatus();
+        }
+
+        if (data.type === 'RESUME_GAME') {
+          paused = false;
           updateStatus();
         }
       } catch(e) {}
@@ -81,7 +93,7 @@
 
     // --- Click Handler ---
     canvas.addEventListener('mousedown', (e) => {
-      if (!myTurn || !gameStarted || winner) return;
+      if (!myTurn || !gameStarted || winner || paused) return;
       const rect = canvas.getBoundingClientRect();
       const col = Math.floor((e.clientX - rect.left) / (400 / 3));
       const row = Math.floor((e.clientY - rect.top) / (400 / 3));
@@ -113,15 +125,22 @@
         if (board[a] && board[a] === board[b] && board[a] === board[c]) {
           winner = board[a];
           winLine = [a, b, c];
+          // Notify the platform so the Game Over overlay fires
+          const whoWon = (winner === mySymbol)
+            ? (mySymbol === 'X' ? 'Host' : 'Guest')
+            : (mySymbol === 'X' ? 'Guest' : 'Host');
+          send({ type: 'GAME_OVER', winner: whoWon });
           return;
         }
       }
     }
 
     function updateStatus() {
-      if (winner) {
+      if (paused) {
+        ui.innerHTML = '<span class="status-waiting">⏸ Opponent Reconnecting...</span>';
+      } else if (winner) {
         const isMe = winner === mySymbol;
-        ui.innerHTML = `<span class="${winner === 'X' ? 'status-cyan' : 'status-pink'}">${isMe ? 'You Win!' : 'You Lose!'}</span>`;
+        ui.innerHTML = `<span class="${winner === 'X' ? 'status-cyan' : 'status-pink'}">${isMe ? 'You Win! ⚡' : 'You Lose! 💀'}</span>`;
       } else if (myTurn) {
         ui.innerHTML = `<span class="${mySymbol === 'X' ? 'status-cyan' : 'status-pink'}">Your Turn (${mySymbol})</span>`;
       } else {

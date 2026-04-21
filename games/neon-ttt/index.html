@@ -225,6 +225,7 @@
     let myTurn = false;
     let started = false;
     let winner = null;
+    let paused = false;  // set by PAUSE_GAME / RESUME_GAME
 
     const MAX_PIECES = 3; // infinite rule: oldest fades after 3
 
@@ -266,13 +267,25 @@
           started = true;
           mySymbol = (msg.isHost === true) ? 'X' : 'O';
           myTurn = (msg.isHost === true); // X always goes first
+          paused = false;
           overlay.classList.add('hidden');
           renderHUD();
+          renderBoard();
           break;
 
         case 'MOVE':
-          if (!started || winner) return;
+          if (!started || winner || paused) return;
           receiveMove(msg.index);
+          break;
+
+        case 'PAUSE_GAME':
+          paused = true;
+          renderBoard(); // disable all cells
+          break;
+
+        case 'RESUME_GAME':
+          paused = false;
+          renderBoard();
           break;
       }
     });
@@ -287,7 +300,7 @@
 
     // ── Click handler ──────────────────────────────────────────
     function onCellClick(index) {
-      if (!myTurn || !started || winner) return;
+      if (!myTurn || !started || winner || paused) return;
       if (board[index] !== null) return;
 
       // Place locally
@@ -331,7 +344,12 @@
       const w = checkWin();
       if (w) {
         winner = w.symbol;
-        setTimeout(() => drawWinLine(w.line), 100);
+        setTimeout(() => {
+          drawWinLine(w.line);
+          // Notify the platform so the Game Over overlay fires
+          const whoWon = (w.symbol === mySymbol) ? (mySymbol === 'X' ? 'Host' : 'Guest') : (mySymbol === 'X' ? 'Guest' : 'Host');
+          sendUp({ type: 'GAME_OVER', winner: whoWon });
+        }, 100);
       }
     }
 
@@ -355,7 +373,7 @@
       for (let i = 0; i < 9; i++) {
         const cell = cells[i];
         cell.innerHTML = '';
-        cell.className = 'cell' + ((!myTurn || winner) ? ' disabled' : '');
+        cell.className = 'cell' + ((!myTurn || winner || paused) ? ' disabled' : '');
 
         const val = board[i];
         if (!val) continue;

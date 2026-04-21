@@ -16,13 +16,17 @@ function MainApp() {
   const navigate = useNavigate();
   const { socket } = useSocket();
 
+  // Server emits 'rejoin' when it recognises our UUID within the 90s grace window.
+  // Navigate back to /play so the game session can resume.
   useEffect(() => {
     if (!socket) return;
-    
+
     const handleRejoin = ({ roomId }) => {
       const savedState = localStorage.getItem('ostl_match_state');
       if (savedState) {
-        navigate('/play', { state: JSON.parse(savedState) });
+        try {
+          navigate('/play', { state: JSON.parse(savedState), replace: true });
+        } catch (e) { localStorage.removeItem('ostl_match_state'); }
       }
     };
 

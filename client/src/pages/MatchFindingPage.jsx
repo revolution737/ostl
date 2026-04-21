@@ -17,7 +17,8 @@ export function MatchFindingPage() {
 
   useEffect(() => {
     // Always wipe any leftover match session when entering matchmaking
-    sessionStorage.removeItem('ostl_match_state');
+    // (README §4: LocalStorage State Hydration — clear stale session on fresh queue entry)
+    localStorage.removeItem('ostl_match_state');
 
     const interval = setInterval(() => {
       setSecondsElapsed((prev) => prev + 1);
