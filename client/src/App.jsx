@@ -1,5 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { SocketProvider } from './context/SocketProvider';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { SocketProvider, useSocket } from './context/SocketProvider';
 import { LandingPage } from './pages/LandingPage';
 import { DeveloperAuthPage } from './pages/DeveloperAuthPage';
 import { DeveloperDashboard } from './pages/DeveloperDashboard';
@@ -12,6 +13,23 @@ import { ThemeProvider } from 'next-themes';
 import { DeveloperAnalyticsPage } from './pages/DeveloperAnalyticsPage';
 
 function MainApp() {
+  const navigate = useNavigate();
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleRejoin = ({ roomId }) => {
+      const savedState = localStorage.getItem('ostl_match_state');
+      if (savedState) {
+        navigate('/play', { state: JSON.parse(savedState) });
+      }
+    };
+
+    socket.on('rejoin', handleRejoin);
+    return () => socket.off('rejoin', handleRejoin);
+  }, [socket, navigate]);
+
   return (
     <div className="w-full min-h-screen bg-slate-950 flex flex-col relative overflow-x-hidden selection:bg-indigo-500/30">
       <main className="flex-1 w-full flex flex-col z-10 bg-white dark:bg-black">

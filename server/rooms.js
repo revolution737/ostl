@@ -1,6 +1,6 @@
 // rooms.js — active room registry + disconnect timers
 
-const DISCONNECT_GRACE_MS = 15_000
+const DISCONNECT_GRACE_MS = 90_000
 
 // Map<roomId, { players: [uuid, uuid], gameId }>
 const rooms = new Map()

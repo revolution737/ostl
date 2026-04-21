@@ -282,6 +282,22 @@ window.addEventListener("message", (event) => {
                 </pre>
               </div>
 
+              <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
+                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">4. Dealing with Dropped Connections</h3>
+                <p className="mb-2">If an opponent physically disconnects, OSTL provides them a 90-second global reconnection window. To prevent unfair advantages during this period, OSTL will emit a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">PAUSE_GAME</code> signal down to your engine, and a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">RESUME_GAME</code> signal upon successful recovery. Listen for these to gracefully halt your internal clocks or timers!</p>
+                <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
+{`window.addEventListener("message", (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === "PAUSE_GAME") {
+    // E.g., clearInterval(myClockTimer);
+  }
+  if (data.type === "RESUME_GAME") {
+    // Resume physics
+  }
+});`}
+                </pre>
+              </div>
+
             </div>
           </motion.div>
         )}

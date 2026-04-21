@@ -24,14 +24,13 @@ export function GamePage() {
   const navigate = useNavigate();
   const { socket } = useSocket();
 
-  // 1. Session Persistence & Hydration
   const [sessionContext, setSessionContext] = useState(() => {
     let context = location.state;
     if (context) {
-      sessionStorage.setItem("ostl_match_state", JSON.stringify(context));
+      localStorage.setItem("ostl_match_state", JSON.stringify(context));
       return context;
     }
-    const stored = sessionStorage.getItem("ostl_match_state");
+    const stored = localStorage.getItem("ostl_match_state");
     if (stored) {
       return JSON.parse(stored);
     }
@@ -145,7 +144,7 @@ export function GamePage() {
 
   const leaveMatch = () => {
     socket.emit("match_ended", { roomId });
-    sessionStorage.removeItem("ostl_match_state");
+    localStorage.removeItem("ostl_match_state");
     navigate("/");
   };
 
@@ -313,7 +312,7 @@ export function GamePage() {
             opponentName={opponentName}
             onLeave={leaveMatch}
             onRetry={() => {
-              sessionStorage.removeItem("ostl_match_state");
+              localStorage.removeItem("ostl_match_state");
               navigate(
                 `/matchmaking/${sessionContext?.gameId || "dummy-game"}`,
                 {

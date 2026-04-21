@@ -36,6 +36,18 @@ export function GameWrapper({
     return () => { clearInterval(iv); clearTimeout(timeout); };
   }, [status, isHost, isReconnecting]);
 
+  // --- DYNAMIC ENGINE PAUSING ---
+  // Fires lifecycle events natively to the game engines telling them to stall internal mechanics
+  useEffect(() => {
+    if (!iframeRef.current || !iframeRef.current.contentWindow) return;
+    
+    if (isReconnecting === true) {
+      iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'PAUSE_GAME' }), '*');
+    } else if (isReconnecting === false) {
+      iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'RESUME_GAME' }), '*');
+    }
+  }, [isReconnecting]);
+
   // --- B. OUTBOUND RELAY (Game Iframe -> WebRTC to Opponent) ---
   useEffect(() => {
     const handleIframeMessage = (event) => {
