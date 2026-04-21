@@ -26,7 +26,7 @@ const ICE_SERVERS = {
   ],
 };
 
-export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
+export function useWebRTC(socket, isConnected, roomId, isHost, reconnectKey = 0) {
   const [status, setStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'failed'
   const [messages, setMessages] = useState([]);
   
@@ -71,7 +71,7 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
   }, []);
 
   useEffect(() => {
-    if (!socket || !roomId) return;
+    if (!socket || !roomId || !isConnected) return;
     if (initializationRef.current) return;
     initializationRef.current = true;
 
@@ -204,7 +204,7 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
       initializationRef.current = false;
       setStatus('disconnected');
     };
-  }, [socket, roomId, isHost, reconnectKey]);
+  }, [socket, isConnected, roomId, isHost, reconnectKey]);
 
   return { status, messages, sendMessage, setOnGameData };
 }

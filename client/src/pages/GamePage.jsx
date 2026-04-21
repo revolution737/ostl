@@ -20,9 +20,9 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 export function GamePage() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const { socket, uuid } = useSocket();
+  const location = useLocation();
+  const { socket, isConnected, uuid } = useSocket();
 
   const [sessionContext, setSessionContext] = useState(() => {
     let context = location.state;
@@ -64,6 +64,7 @@ export function GamePage() {
 
   const { status, messages, sendMessage, setOnGameData } = useWebRTC(
     socket,
+    isConnected,
     roomId,
     isHost,
     reconnectKey,
