@@ -145,15 +145,33 @@ router.get("/:slug", async (req, res) => {
 
     const { rows: stats } = await db.query(
       `
-      SELECT COUNT(*)::int AS total_plays, COUNT(DISTINCT player1_uuid) + COUNT(DISTINCT player2_uuid) AS unique_players
+      SELECT 
+        COUNT(*)::int AS total_plays, 
+        (COUNT(DISTINCT player1_uuid) + COUNT(DISTINCT player2_uuid))::int AS unique_players,
+        COALESCE(AVG(EXTRACT(EPOCH FROM (ended_at - started_at)))/60, 0)::int AS avg_session_mins
       FROM match_history WHERE game_slug = $1
     `,
       [req.params.slug],
     );
 
+    const { rows: growth } = await db.query(
+      `
+      SELECT 
+        TO_CHAR(DATE(started_at), 'Mon DD') as day,
+        (COUNT(DISTINCT player1_uuid) + COUNT(DISTINCT player2_uuid))::int as players
+      FROM match_history
+      WHERE game_slug = $1 
+        AND started_at >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(started_at)
+      ORDER BY DATE(started_at) ASC
+      `,
+      [req.params.slug]
+    );
+
     res.json({
       game: { ...rows[0], play_url: getPlayUrl(rows[0].slug) },
-      stats: stats[0] || { total_plays: 0, unique_players: 0 },
+      stats: stats[0] || { total_plays: 0, unique_players: 0, avg_session_mins: 0 },
+      growth: growth
     });
   } catch (err) {
     console.error(

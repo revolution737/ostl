@@ -138,7 +138,7 @@ export function DeveloperDashboard() {
           className="mb-8"
         >
           <h2 className="text-3xl font-semibold mb-6 text-gray-800 tracking-tight">Publisher Overview</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <StatCard
               icon={<PlayCircle className="w-6 h-6" />}
               label="Published Games"
@@ -150,12 +150,6 @@ export function DeveloperDashboard() {
               label="Total Plays"
               value={totalPlays.toLocaleString()}
               color="green"
-            />
-            <StatCard
-              icon={<TrendingUp className="w-6 h-6" />}
-              label="Avg. Edge Success"
-              value="100%"
-              color="purple"
             />
           </div>
         </motion.div>

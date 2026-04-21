@@ -11,16 +11,6 @@ import {
   ChartTooltipContent,
 } from "../components/ui/chart";
 
-const chartData = [
-  { day: "Apr 1", players: 750 },
-  { day: "Apr 2", players: 840 },
-  { day: "Apr 3", players: 1050 },
-  { day: "Apr 4", players: 920 },
-  { day: "Apr 5", players: 1200 },
-  { day: "Apr 6", players: 1350 },
-  { day: "Apr 7", players: 1280 }
-];
-
 const chartConfig = {
   players: {
     label: "Players",
@@ -34,6 +24,7 @@ export function DeveloperAnalyticsPage() {
   
   const [game, setGame] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -47,6 +38,12 @@ export function DeveloperAnalyticsPage() {
         
         setGame(data.game);
         setStats(data.stats);
+        if (data.growth && data.growth.length > 0) {
+          setChartData(data.growth);
+        } else {
+           // Fallback to flatline if no matches
+          setChartData([{ day: "Today", players: 0 }]);
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load telemetry');
       } finally {
@@ -176,24 +173,24 @@ export function DeveloperAnalyticsPage() {
               icon={<Users className="w-5 h-5 text-white" />} 
               bgColor="bg-blue-500"
               label="Active Players" 
-              value={(Math.floor((stats.unique_players || 0) / 2) + 12).toLocaleString()} 
-              growth="+12.5%"
+              value={(stats?.active_players || 0).toLocaleString()} 
+              growth=""
               growthColor="text-green-500"
            />
            <AnalyticCard 
               icon={<TrendingUp className="w-5 h-5 text-white" />} 
               bgColor="bg-green-500"
               label="Total Players" 
-              value={(stats.unique_players || 0).toLocaleString()} 
-              growth="+8.3%"
+              value={(stats?.unique_players || 0).toLocaleString()} 
+              growth=""
               growthColor="text-green-500"
            />
            <AnalyticCard 
               icon={<PlayCircle className="w-5 h-5 text-white" />} 
               bgColor="bg-purple-500"
               label="Avg. Session" 
-              value="18m 34s" 
-              growth="+3.2%"
+              value={`${stats?.avg_session_mins || 0}m`} 
+              growth=""
               growthColor="text-green-500"
            />
         </div>
