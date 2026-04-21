@@ -35,7 +35,7 @@ export function GameListingPage() {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
         const response = await fetch(`${baseUrl}/api/games`);
         if (!response.ok) throw new Error("Failed to fetch game catalog");
         const data = await response.json();

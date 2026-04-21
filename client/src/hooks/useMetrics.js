@@ -11,7 +11,7 @@ export function useMetrics() {
 
     async function fetchData() {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || "";
+        const apiBase = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || "") : "";
 
         const [gamesRes, debugRes] = await Promise.all([
           fetch(`${apiBase}/api/games`).then((res) => {

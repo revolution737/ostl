@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Upload, FileArchive, CheckCircle, ArrowLeft, Loader2 } from "lucide-react";
+import { Upload, FileArchive, CheckCircle, ArrowLeft, Loader2, ChevronDown, ChevronUp, BookOpen } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -13,6 +13,7 @@ export function DeveloperUploadPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [showDocs, setShowDocs] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -55,7 +56,7 @@ export function DeveloperUploadPage() {
     if (thumbnailUrl) formData.append("thumbnail_url", thumbnailUrl);
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
       const response = await fetch(`${baseUrl}/api/games`, {
         method: "POST",
         body: formData,
@@ -216,20 +217,34 @@ export function DeveloperUploadPage() {
           </form>
         </motion.div>
 
-        {/* Developer Documentation */}
-        <motion.div
-           initial={{ opacity: 0, y: 20 }}
-           animate={{ opacity: 1, y: 0 }}
-           transition={{ duration: 0.6, delay: 0.2 }}
-           className="mt-12 bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl max-w-4xl mx-auto"
-        >
-          <h2 className="text-2xl font-bold text-white mb-6">OSTL WebRTC Sandbox Guidelines</h2>
-          <div className="space-y-6 text-slate-300 text-sm">
-            
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/50">
-              <h3 className="text-lg font-bold text-indigo-400 mb-2">1. Handshake (Initialization)</h3>
-              <p className="mb-4">When your game loads, the OSTL Platform will rapidly ping it with a <code className="bg-slate-800 text-pink-400 px-1 py-0.5 rounded">START</code> signal indicating the player's role (Host or Guest).</p>
-              <pre className="bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-400 font-mono text-xs border border-slate-800">
+        {/* Developer Documentation Toggle */}
+        <div className="mt-8 max-w-4xl mx-auto flex justify-center">
+          <button
+            onClick={() => setShowDocs(!showDocs)}
+            className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-full text-gray-700 dark:text-gray-300 font-semibold shadow-sm hover:shadow-md transition-all hover:border-blue-500/50"
+          >
+            <BookOpen size={18} className="text-blue-500" />
+            {showDocs ? "Hide WebRTC Guidelines" : "Show WebRTC Guidelines"}
+            {showDocs ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </button>
+        </div>
+
+        {/* Developer Documentation Content */}
+        {showDocs && (
+          <motion.div
+             initial={{ opacity: 0, height: 0, y: -10 }}
+             animate={{ opacity: 1, height: "auto", y: 0 }}
+             exit={{ opacity: 0, height: 0, y: -10 }}
+             transition={{ duration: 0.3 }}
+             className="mt-6 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-gray-100 dark:border-slate-800 shadow-xl max-w-4xl mx-auto overflow-hidden"
+          >
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">OSTL WebRTC Sandbox Guidelines</h2>
+            <div className="space-y-6 text-gray-600 dark:text-slate-300 text-sm">
+              
+              <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
+                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">1. Handshake (Initialization)</h3>
+                <p className="mb-4">When your game loads, the OSTL Platform will rapidly ping it with a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">START</code> signal indicating the player's role (Host or Guest).</p>
+                <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`window.addEventListener("message", (event) => {
   const data = JSON.parse(event.data);
   if (data.type === "START") {
@@ -238,13 +253,13 @@ export function DeveloperUploadPage() {
     window.parent.postMessage(JSON.stringify({ type: "READY" }), "*");
   }
 });`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/50">
-              <h3 className="text-lg font-bold text-indigo-400 mb-2">2. Sending & Receiving Moves</h3>
-              <p className="mb-2">Send all game states out to the platform using generic postMessages. OSTL will blindly route your payload to the opponent via WebRTC.</p>
-              <pre className="bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-400 font-mono text-xs border border-slate-800">
+              <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
+                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">2. Sending & Receiving Moves</h3>
+                <p className="mb-2">Send all game states out to the platform using generic postMessages. OSTL will blindly route your payload to the opponent via WebRTC.</p>
+                <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`// To send an action:
 window.parent.postMessage(JSON.stringify({ action: "FIRE", x: 100 }), "*");
 
@@ -253,22 +268,23 @@ window.addEventListener("message", (event) => {
   const data = JSON.parse(event.data);
   if (data.action === "FIRE") { ... }
 });`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/50">
-              <h3 className="text-lg font-bold text-indigo-400 mb-2">3. Terminating the Game</h3>
-              <p className="mb-2">When the game ends, emit the <code className="bg-slate-800 text-pink-400 px-1 py-0.5 rounded">GAME_OVER</code> signal. OSTL will intercept this and surface the end-game menu (Rematch / Return Home) to the players natively.</p>
-              <pre className="bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-400 font-mono text-xs border border-slate-800">
+              <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
+                <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">3. Terminating the Game</h3>
+                <p className="mb-2">When the game ends, emit the <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">GAME_OVER</code> signal. OSTL will intercept this and surface the end-game menu (Rematch / Return Home) to the players natively.</p>
+                <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`window.parent.postMessage(JSON.stringify({ 
   type: "GAME_OVER", 
   winner: "Host" // Must be "Host", "Guest", or "Draw"
 }), "*");`}
-              </pre>
-            </div>
+                </pre>
+              </div>
 
-          </div>
-        </motion.div>
+            </div>
+          </motion.div>
+        )}
 
       </div>
     </div>

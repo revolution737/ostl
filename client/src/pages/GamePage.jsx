@@ -190,7 +190,7 @@ export function GamePage() {
     `/games/${sessionContext?.gameId || "dummy-game"}/index.html`;
 
   // Ensure we point to the Express backend explicitly if the frontend is hosted elsewhere
-  const apiBase = import.meta.env.VITE_API_URL || "";
+  const apiBase = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || "") : "";
   if (gamePath.startsWith("/")) {
     gamePath = `${apiBase}${gamePath}`;
   }

@@ -128,7 +128,7 @@ router.get("/", async (req, res) => {
     res.json({ games: gamesWithUrls });
   } catch (err) {
     console.error("[api] GET /api/games error:", err.message);
-    res.status(500).json({ error: "Failed to fetch games" });
+    res.status(500).json({ error: "Failed to fetch games", details: err.message, stack: err.stack });
   }
 });
 

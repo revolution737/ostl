@@ -24,7 +24,7 @@ export function DeveloperAuthPage() {
     setError(null);
     
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
       const endpoint = isLogin ? `${baseUrl}/api/auth/login` : `${baseUrl}/api/auth/signup`;
       const body = isLogin ? { email, password } : { name, email, password };
       
