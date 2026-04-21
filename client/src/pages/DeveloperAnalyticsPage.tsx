@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Users, PlayCircle, Activity, TrendingUp, Edit, X } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { apiBase } from "../lib/api";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChartConfig,
@@ -38,8 +39,7 @@ export function DeveloperAnalyticsPage() {
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
-        const res = await fetch(`${baseUrl}/api/games/${gameId}`);
+        const res = await fetch(`${apiBase}/api/games/${gameId}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
 
@@ -98,8 +98,7 @@ export function DeveloperAnalyticsPage() {
       formData.append('developer_id', localStorage.getItem('developerId') || '');
 
       try {
-        const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
-        const response = await fetch(`${baseUrl}/api/games/${gameId}`, {
+        const response = await fetch(`${apiBase}/api/games/${gameId}`, {
           method: 'PUT',
           body: formData
         });
@@ -120,8 +119,7 @@ export function DeveloperAnalyticsPage() {
     if (window.confirm("Are you absolutely sure you want to delete this game? This action is permanent and cannot be undone.")) {
       setLoading(true);
       try {
-        const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
-        const response = await fetch(`${baseUrl}/api/games/${gameId}`, {
+        const response = await fetch(`${apiBase}/api/games/${gameId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
@@ -142,8 +140,7 @@ export function DeveloperAnalyticsPage() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
-      const response = await fetch(`${baseUrl}/api/games/${gameId}`, {
+      const response = await fetch(`${apiBase}/api/games/${gameId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

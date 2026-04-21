@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Plus, Users, PlayCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { apiBase } from "../lib/api";
 
 interface DeveloperGame {
   id: string;
@@ -10,11 +11,8 @@ interface DeveloperGame {
   image: string;
   totalPlayers: number;
   activePlayers: number;
-  revenue: number;
   status: "active" | "pending" | "paused";
 }
-
-
 
 export function DeveloperDashboard() {
   const navigate = useNavigate();
@@ -42,8 +40,7 @@ export function DeveloperDashboard() {
 
     async function loadGames() {
       try {
-        const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
-        const res = await fetch(`${baseUrl}/api/games?developer_id=${devId}`);
+        const res = await fetch(`${apiBase}/api/games?developer_id=${devId}`);
         const data = await res.json();
         if (data.games) {
           const mapped = data.games.map((g: any) => ({
@@ -51,15 +48,13 @@ export function DeveloperDashboard() {
             name: g.title,
             image: g.thumbnail_url || "https://images.unsplash.com/photo-1612385763901-68857dd4c43c?w=1080",
             totalPlayers: g.total_plays || 0,
-            activePlayers: 0, // Mocked for now until socket tracking supports dev filter natively
-            revenue: Math.floor((g.total_plays || 0) * 0.05), // Fun mock metric
+            activePlayers: 0,
             status: g.is_active ? "active" : "paused"
           }));
           setGames(mapped);
-          
-          let sumPlays = 0;
-          data.games.forEach((g: any) => sumPlays += (g.total_plays || 0));
-          setTotalPlays(sumPlays);
+          setTotalPlays(
+            data.games.reduce((sum: number, g: any) => sum + (g.total_plays || 0), 0)
+          );
         }
       } catch (err) {
         console.error("Failed to fetch developer games");

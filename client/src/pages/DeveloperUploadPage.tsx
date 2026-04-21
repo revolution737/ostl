@@ -5,6 +5,7 @@ import { Upload, FileArchive, CheckCircle, ArrowLeft, Loader2, ChevronDown, Chev
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { apiBase } from "../lib/api";
 
 export function DeveloperUploadPage() {
   const navigate = useNavigate();
@@ -56,8 +57,7 @@ export function DeveloperUploadPage() {
     if (thumbnailUrl) formData.append("thumbnail_url", thumbnailUrl);
 
     try {
-      const baseUrl = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || '') : '';
-      const response = await fetch(`${baseUrl}/api/games`, {
+      const response = await fetch(`${apiBase}/api/games`, {
         method: "POST",
         body: formData,
       });

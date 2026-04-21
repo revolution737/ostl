@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiBase } from "../lib/api";
 
 export function useMetrics() {
   const [games, setGames] = useState<any[]>([]);
@@ -11,8 +12,6 @@ export function useMetrics() {
 
     async function fetchData() {
       try {
-        const apiBase = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || "") : "";
-
         const [gamesRes, debugRes] = await Promise.all([
           fetch(`${apiBase}/api/games`).then((res) => {
             if (!res.ok) throw new Error(`Games API returned ${res.status}`);

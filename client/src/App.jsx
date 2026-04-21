@@ -1,11 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { SocketProvider, useSocket } from './context/SocketProvider';
 import { LandingPage } from './pages/LandingPage';
 import { DeveloperAuthPage } from './pages/DeveloperAuthPage';
 import { DeveloperDashboard } from './pages/DeveloperDashboard';
 import { DeveloperUploadPage } from './pages/DeveloperUploadPage';
-import { GameListingPage } from './pages/GameListingPage';
 import { MatchFindingPage } from './pages/MatchFindingPage';
 import { GamePage } from './pages/GamePage';
 import { ThemeProvider } from 'next-themes';
@@ -36,7 +35,6 @@ function MainApp() {
           <Route path="/developers/dashboard" element={<DeveloperDashboard />} />
           <Route path="/developers/upload" element={<DeveloperUploadPage />} />
           <Route path="/developers/analytics/:gameId" element={<DeveloperAnalyticsPage />} />
-          <Route path="/games" element={<GameListingPage />} />
           <Route path="/matchmaking/:gameId" element={<MatchFindingPage />} />
           <Route path="/play" element={<GamePage />} />
         </Routes>
