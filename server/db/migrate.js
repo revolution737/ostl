@@ -24,6 +24,17 @@ async function runAutoMigration() {
       }
     }
 
+    // Auto-patch thumbnail_url to TEXT to support massive image urls
+    try {
+      await pool.query(`
+        ALTER TABLE game_catalog 
+        ALTER COLUMN thumbnail_url TYPE TEXT;
+      `);
+      console.log('[db] Successfully changed thumbnail_url type to TEXT');
+    } catch (err) {
+      console.warn('[db] Failed to alter thumbnail_url:', err.message);
+    }
+
     console.log('[db] Migrations verified successfully');
   } catch (err) {
     console.error('[db] Auto-migration failed:', err.message);

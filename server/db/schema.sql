@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS game_catalog (
     slug          VARCHAR(100) UNIQUE NOT NULL,
     title         VARCHAR(200) NOT NULL,
     description   TEXT DEFAULT '',
-    thumbnail_url VARCHAR(500) DEFAULT '',
+    thumbnail_url TEXT DEFAULT '',
     min_players   INTEGER DEFAULT 2,
     max_players   INTEGER DEFAULT 2,
     developer_id  INTEGER REFERENCES developers(id) ON DELETE CASCADE,
