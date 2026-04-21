@@ -116,7 +116,7 @@ export function DeveloperUploadPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Galactic Pong Arena"
                 required
-                className="bg-gray-50 border-gray-200 text-gray-900"
+                className="bg-white border-gray-200 text-gray-900"
               />
             </div>
 
@@ -127,7 +127,7 @@ export function DeveloperUploadPage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Briefly describe the gameplay and controls..."
-                className="flex w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[100px]"
+                className="flex w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 min-h-[100px]"
               />
             </div>
 
@@ -139,7 +139,7 @@ export function DeveloperUploadPage() {
                 value={thumbnailUrl}
                 onChange={(e) => setThumbnailUrl(e.target.value)}
                 placeholder="https://images.unsplash.com/photo-..."
-                className="bg-gray-50 border-gray-200 text-gray-900"
+                className="bg-white border-gray-200 text-gray-900"
               />
             </div>
 
