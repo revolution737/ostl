@@ -150,30 +150,7 @@ export function GamePage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [scrollTriggerLength]);
 
-  const ChatBubble = ({ msg }) => {
-    const isMe = msg.sender === "me";
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-        className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-      >
-        <div className="flex flex-col max-w-[70%]">
-          <span
-            className={`text-[10px] uppercase font-mono tracking-wider mb-1 px-1 ${isMe ? "text-right text-gray-500" : "text-left text-gray-500"}`}
-          >
-            {isMe ? "You" : msg.data.author}
-          </span>
-          <div
-            className={`px-4 py-2 rounded-2xl shadow-sm ${isMe ? "bg-blue-600 text-white rounded-br-[4px]" : "bg-gray-100 text-gray-800 rounded-bl-[4px] dark:bg-gray-800 dark:text-gray-100"}`}
-          >
-            <p className="text-sm">{msg.data.text}</p>
-          </div>
-        </div>
-      </motion.div>
-    );
-  };
+  // ChatBubble Component moved outside to prevent re-mounts on keystrokes
 
   if (!roomId) return null;
 
@@ -327,6 +304,30 @@ export function GamePage() {
   );
 }
 
+const ChatBubble = ({ msg }) => {
+  const isMe = msg.sender === "me";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`flex ${isMe ? "justify-end" : "justify-start"}`}
+    >
+      <div className="flex flex-col max-w-[70%]">
+        <span
+          className={`text-[10px] uppercase font-mono tracking-wider mb-1 px-1 ${isMe ? "text-right text-gray-500" : "text-left text-gray-500"}`}
+        >
+          {isMe ? "You" : msg.data.author}
+        </span>
+        <div
+          className={`px-4 py-2 rounded-2xl shadow-sm ${isMe ? "bg-blue-600 text-white rounded-br-[4px]" : "bg-gray-100 text-gray-800 rounded-bl-[4px] dark:bg-gray-800 dark:text-gray-100"}`}
+        >
+          <p className="text-sm">{msg.data.text}</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 // Overlays
 function ReconnectingOverlay({ opponentName }) {
   return (

@@ -55,7 +55,8 @@ export function DeveloperUploadPage() {
     if (thumbnailUrl) formData.append("thumbnail_url", thumbnailUrl);
 
     try {
-      const response = await fetch("/api/games", {
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const response = await fetch(`${baseUrl}/api/games`, {
         method: "POST",
         body: formData,
       });

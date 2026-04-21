@@ -40,7 +40,8 @@ export function DeveloperAnalyticsPage() {
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const res = await fetch(`/api/games/${gameId}`);
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const res = await fetch(`${baseUrl}/api/games/${gameId}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error);
         
@@ -90,7 +91,8 @@ export function DeveloperAnalyticsPage() {
       formData.append('developer_id', localStorage.getItem('developerId') || '');
 
       try {
-        const response = await fetch(`/api/games/${gameId}`, {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${baseUrl}/api/games/${gameId}`, {
           method: 'PUT',
           body: formData
         });
@@ -111,7 +113,8 @@ export function DeveloperAnalyticsPage() {
     if (window.confirm("Are you absolutely sure you want to delete this game? This action is permanent and cannot be undone.")) {
       setLoading(true);
       try {
-        const response = await fetch(`/api/games/${gameId}`, {
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${baseUrl}/api/games/${gameId}`, {
           method: 'DELETE',
           headers: {
              'Content-Type': 'application/json'

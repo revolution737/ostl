@@ -13,9 +13,18 @@ export function LandingPage() {
   const navigate = useNavigate();
   const { games, totalActiveNow, loading } = useMetrics();
 
+  const RANDOM_NAMES = [
+    "Anonymous Hippo",
+    "Neon Tiger",
+    "Quantum Gecko",
+    "Ephemeral Hawk",
+    "Plasma Wolf",
+  ];
+
   const handlePlayNow = () => {
-    if (selectedGame && playerName.trim()) {
-      navigate(`/matchmaking/${selectedGame.slug}`, { state: { gameId: selectedGame.slug, playUrl: selectedGame.playUrl, displayName: playerName } });
+    if (selectedGame) {
+      const finalName = playerName.trim() || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+      navigate(`/matchmaking/${selectedGame.slug}`, { state: { gameId: selectedGame.slug, playUrl: selectedGame.playUrl, displayName: finalName } });
     }
   };
 
@@ -152,7 +161,7 @@ export function LandingPage() {
                   <div className="space-y-4">
                     <Input
                       type="text"
-                      placeholder="Enter your display name"
+                      placeholder="e.g. Neon Tiger (Leave blank for random)"
                       value={playerName}
                       onChange={(e) => setPlayerName(e.target.value)}
                       className="w-full bg-gray-50 dark:bg-slate-800/50"
@@ -160,7 +169,6 @@ export function LandingPage() {
                     />
                     <Button
                       onClick={handlePlayNow}
-                      disabled={!playerName.trim()}
                       className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white py-6 text-lg shadow-lg shadow-blue-500/25"
                     >
                       Play Now

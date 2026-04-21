@@ -24,7 +24,8 @@ export function DeveloperAuthPage() {
     setError(null);
     
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/signup';
+      const baseUrl = import.meta.env.VITE_API_URL || '';
+      const endpoint = isLogin ? `${baseUrl}/api/auth/login` : `${baseUrl}/api/auth/signup`;
       const body = isLogin ? { email, password } : { name, email, password };
       
       const response = await fetch(endpoint, {

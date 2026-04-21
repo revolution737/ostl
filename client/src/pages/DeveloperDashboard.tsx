@@ -69,7 +69,8 @@ export function DeveloperDashboard() {
 
     async function loadGames() {
       try {
-        const res = await fetch(`/api/games?developer_id=${devId}`);
+        const baseUrl = import.meta.env.VITE_API_URL || '';
+        const res = await fetch(`${baseUrl}/api/games?developer_id=${devId}`);
         const data = await res.json();
         if (data.games) {
           const mapped = data.games.map((g: any) => ({
