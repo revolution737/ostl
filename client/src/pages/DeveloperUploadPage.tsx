@@ -90,7 +90,7 @@ export function DeveloperUploadPage() {
             <span className="font-medium">Back</span>
           </button>
           <h1 className="text-2xl flex-1 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent font-bold">
-            OSTL Publish
+            ostl. Publish
           </h1>
         </div>
       </nav>
@@ -238,12 +238,12 @@ export function DeveloperUploadPage() {
              transition={{ duration: 0.3 }}
              className="mt-6 bg-white dark:bg-slate-900 rounded-3xl p-8 border border-gray-100 dark:border-slate-800 shadow-xl max-w-4xl mx-auto overflow-hidden"
           >
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">OSTL WebRTC Sandbox Guidelines</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">ostl. WebRTC Sandbox Guidelines</h2>
             <div className="space-y-6 text-gray-600 dark:text-slate-300 text-sm">
               
               <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
                 <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">1. Handshake (Initialization)</h3>
-                <p className="mb-4">When your game loads, the OSTL Platform will rapidly ping it with a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">START</code> signal indicating the player's role (Host or Guest).</p>
+                <p className="mb-4">When your game loads, the ostl. Platform will rapidly ping it with a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">START</code> signal indicating the player's role (Host or Guest).</p>
                 <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`window.addEventListener("message", (event) => {
   const data = JSON.parse(event.data);
@@ -258,7 +258,7 @@ export function DeveloperUploadPage() {
 
               <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
                 <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">2. Sending & Receiving Moves</h3>
-                <p className="mb-2">Send all game states out to the platform using generic postMessages. OSTL will blindly route your payload to the opponent via WebRTC.</p>
+                <p className="mb-2">Send all game states out to the platform using generic postMessages. ostl. will blindly route your payload to the opponent via WebRTC.</p>
                 <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`// To send an action:
 window.parent.postMessage(JSON.stringify({ action: "FIRE", x: 100 }), "*");
@@ -273,7 +273,7 @@ window.addEventListener("message", (event) => {
 
               <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
                 <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">3. Terminating the Game</h3>
-                <p className="mb-2">When the game ends, emit the <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">GAME_OVER</code> signal. OSTL will intercept this and surface the end-game menu (Rematch / Return Home) to the players natively.</p>
+                <p className="mb-2">When the game ends, emit the <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">GAME_OVER</code> signal. ostl. will intercept this and surface the end-game menu (Rematch / Return Home) to the players natively.</p>
                 <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`window.parent.postMessage(JSON.stringify({ 
   type: "GAME_OVER", 
@@ -284,7 +284,7 @@ window.addEventListener("message", (event) => {
 
               <div className="bg-gray-50 dark:bg-slate-950 p-6 rounded-2xl border border-gray-100 dark:border-slate-800/50">
                 <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-2">4. Dealing with Dropped Connections</h3>
-                <p className="mb-2">If an opponent physically disconnects, OSTL provides them a 90-second global reconnection window. To prevent unfair advantages during this period, OSTL will emit a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">PAUSE_GAME</code> signal down to your engine, and a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">RESUME_GAME</code> signal upon successful recovery. Listen for these to gracefully halt your internal clocks or timers!</p>
+                <p className="mb-2">If an opponent physically disconnects, ostl. provides them a 90-second global reconnection window. To prevent unfair advantages during this period, ostl. will emit a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">PAUSE_GAME</code> signal down to your engine, and a <code className="bg-gray-200 dark:bg-slate-800 text-pink-500 dark:text-pink-400 px-1 py-0.5 rounded">RESUME_GAME</code> signal upon successful recovery. Listen for these to gracefully halt your internal clocks or timers!</p>
                 <pre className="bg-slate-100 dark:bg-slate-900 p-4 rounded-xl overflow-x-auto text-emerald-600 dark:text-emerald-400 font-mono text-xs border border-gray-200 dark:border-slate-800">
 {`window.addEventListener("message", (event) => {
   const data = JSON.parse(event.data);

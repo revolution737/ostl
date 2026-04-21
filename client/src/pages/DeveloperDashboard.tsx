@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, TrendingUp, Users, PlayCircle } from "lucide-react";
+import { Plus, Users, PlayCircle } from "lucide-react";
 import { Button } from "../components/ui/button";
 
 interface DeveloperGame {
@@ -10,38 +10,11 @@ interface DeveloperGame {
   image: string;
   totalPlayers: number;
   activePlayers: number;
+  revenue: number;
   status: "active" | "pending" | "paused";
 }
 
-const developerGames: DeveloperGame[] = [
-  {
-    id: "chess",
-    name: "Chess Master",
-    image: "https://images.unsplash.com/photo-1654741755763-b4cee51feb9a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjaGVzcyUyMGJvYXJkJTIwZ2FtZXxlbnwxfHx8fDE3NzU4MzM4OTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    totalPlayers: 15420,
-    activePlayers: 1247,
-    revenue: 2845,
-    status: "active",
-  },
-  {
-    id: "poker",
-    name: "Poker Night",
-    image: "https://images.unsplash.com/photo-1560327317-031f46d0e995?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwb2tlciUyMGNhcmRzJTIwZ2FtZXxlbnwxfHx8fDE3NzU4MzM4OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    totalPlayers: 28560,
-    activePlayers: 2156,
-    revenue: 4920,
-    status: "active",
-  },
-  {
-    id: "puzzle",
-    name: "Puzzle Challenge",
-    image: "https://images.unsplash.com/photo-1612385763901-68857dd4c43c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdXp6bGUlMjBnYW1lJTIwY29sb3JmdWx8ZW58MXx8fHwxNzc1ODMzODkzfDA&ixlib=rb-4.1.0&q=80&w=1080",
-    totalPlayers: 9834,
-    activePlayers: 743,
-    revenue: 1560,
-    status: "active",
-  },
-];
+
 
 export function DeveloperDashboard() {
   const navigate = useNavigate();
@@ -104,7 +77,7 @@ export function DeveloperDashboard() {
       <nav className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent font-bold">
-            OSTL {devName ? `— ${devName}` : ''}
+            {devName || 'ostl.'}
           </h1>
           <div className="flex space-x-4">
              <Button

@@ -168,7 +168,7 @@ export function DeveloperAnalyticsPage() {
 
       {/* Navbar segment */}
       <nav className="bg-white border-b border-gray-100 py-3 px-6 flex justify-between items-center shadow-sm">
-        <h1 className="text-xl font-bold text-blue-600 tracking-wide">OSTL</h1>
+        <h1 className="text-xl font-bold text-blue-600 tracking-wide">ostl.</h1>
         <button
           onClick={() => navigate('/developers/dashboard')}
           className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-md text-sm font-semibold hover:bg-gray-50 transition"

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 export function useMetrics() {
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState<any[]>([]);
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [totalActiveNow, setTotalActiveNow] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -26,12 +26,12 @@ export function useMetrics() {
 
         if (!mounted) return;
 
-        const debugData = debugRes;
+        const debugData: any = debugRes;
         const totalRegistered = debugData.players?.length || 0;
 
         let allActiveNow = 0;
 
-        const mappedGames = (gamesRes.games || []).map((g) => {
+        const mappedGames = (gamesRes.games || []).map((g: any) => {
           let gameActiveUsers = 0;
 
           // 1. Count players waiting in the matchmaking queue
@@ -47,7 +47,7 @@ export function useMetrics() {
           // 2. Count players currently in active game rooms
           // CRITICAL FIX: The backend room object uses `gameId`, not `gameSlug`
           if (Array.isArray(debugData.rooms)) {
-            debugData.rooms.forEach((room) => {
+            debugData.rooms.forEach((room: any) => {
               if (room.gameId === g.slug || room.gameId === g.id) {
                 gameActiveUsers += room.players ? room.players.length : 2;
               }

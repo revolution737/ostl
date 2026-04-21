@@ -8,7 +8,7 @@ import { useMetrics } from "../hooks/useMetrics";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 
 export function LandingPage() {
-  const [selectedGame, setSelectedGame] = useState(null);
+  const [selectedGame, setSelectedGame] = useState<any>(null);
   const [playerName, setPlayerName] = useState("");
   const navigate = useNavigate();
   const { games, totalActiveNow, loading } = useMetrics();
@@ -34,7 +34,7 @@ export function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-800">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent">
-            OSTL
+            ostl.
           </h1>
           <div className="flex items-center gap-4">
              <ThemeToggle />
@@ -97,7 +97,7 @@ export function LandingPage() {
             ) : games.length === 0 ? (
                <div className="col-span-full text-center text-gray-500 py-10">No games found online.</div>
             ) : (
-              games.map((game, index) => (
+              games.map((game: any, index: number) => (
                 <GameCard
                   key={game.id}
                   game={game}
@@ -184,7 +184,7 @@ export function LandingPage() {
   );
 }
 
-function GameCard({ game, index, onClick }) {
+function GameCard({ game, index, onClick }: { game: any, index: number, onClick: () => void }) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (

@@ -70,7 +70,7 @@ export function DeveloperAuthPage() {
             <Code2 className="w-12 h-12 text-white" />
           </motion.div>
           <h1 className="text-3xl mb-2 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 bg-clip-text text-transparent font-bold">
-            OSTL Developers
+            ostl. Developers
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
             {isLogin ? "Sign in to manage your games" : "Create an account to publish your WebRTC engines"}
@@ -95,7 +95,7 @@ export function DeveloperAuthPage() {
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Studio OSTL"
+                  placeholder="Studio ostl."
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="bg-gray-50 dark:bg-slate-950/50 border-gray-200 dark:border-slate-800"
