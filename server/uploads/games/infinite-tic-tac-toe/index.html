@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Infinite Neon Tic-Tac-Toe</title>
+  <style>
+    :root {
+      --cyan: #00e5ff;
+      --pink: #ff4081;
+      --bg: #0a0a1a;
+      --grid: rgba(100, 120, 255, 0.2);
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: white;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #game-container {
+      position: relative;
+      width: 400px;
+      height: 400px;
+    }
+    canvas {
+      border: 1px solid var(--grid);
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    #ui {
+      position: absolute;
+      top: -60px;
+      width: 100%;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .status-cyan { color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+    .status-pink { color: var(--pink); text-shadow: 0 0 10px var(--pink); }
+    .status-waiting { color: #555; }
+
+    #waiting {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 10, 26, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(0, 229, 255, 0.2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <div id="waiting">
+    <div class="spinner"></div>
+    <div id="status-text">Synchronizing Void...</div>
+  </div>
+
+  <div id="game-container">
+    <div id="ui">Waiting for player...</div>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const ui = document.getElementById('ui');
+
+    // --- ostl. Bridge ---
+    const isEmbedded = window.parent !== window;
+    let isHost = false;
+    let myMove = false;
+    let gameStarted = false;
+    let mySymbol = ''; // 'X' or 'O'
+
+    function sendToOpponent(data) {
+      if (isEmbedded) {
+        window.parent.postMessage(JSON.stringify(data), '*');
+      }
+    }
+
+    window.addEventListener('message', (event) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        
+        if (data.type === 'START') {
+          isHost = !!data.isHost;
+          mySymbol = isHost ? 'X' : 'O';
+          myMove = isHost;
+          gameStarted = true;
+          document.getElementById('waiting').style.display = 'none';
+          updateStatus();
+        } else if (data.type === 'MOVE') {
+          handleOpponentMove(data.index);
+        } else if (data.type === 'READY') {
+          // If we was already started, let's nudge the other
+          if (gameStarted) {
+            sendToOpponent({ type: 'START', isHost: !isHost });
+          }
+        }
+      } catch (e) {}
+    });
+
+    // Notify wrapper we are ready
+    if (isEmbedded) {
+      setTimeout(() => sendToOpponent({ type: 'READY' }), 500);
+    } else {
+      // Standalone dev mode
+      setTimeout(() => {
+        isHost = true;
+        mySymbol = 'X';
+        myMove = true;
+        gameStarted = true;
+        document.getElementById('waiting').style.display = 'none';
+        updateStatus();
+      }, 1000);
+    }
+
+    // --- Game Logic ---
+    let board = Array(9).fill(null);
+    let xHistory = []; // indices of X moves
+    let oHistory = []; // indices of O moves
+    let winner = null;
+    let winLine = null;
+
+    function checkWinner() {
+      const lines = [
+        [0,1,2], [3,4,5], [6,7,8], // rows
+        [0,3,6], [1,4,7], [2,5,8], // cols
+        [0,4,8], [2,4,6]           // diags
+      ];
+      for (const line of lines) {
+        const [a, b, c] = line;
+        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+          winner = board[a];
+          winLine = line;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function updateStatus() {
+      if (winner) {
+        ui.innerHTML = `<span class="${winner === 'X' ? 'status-cyan' : 'status-pink'}">${winner === 'X' ? 'Neon X' : 'Rose O'} Wins!</span>`;
+      } else if (myMove) {
+        ui.innerHTML = `<span class="${mySymbol === 'X' ? 'status-cyan' : 'status-pink'}">Your Turn (${mySymbol})</span>`;
+      } else {
+        ui.innerHTML = `<span class="status-waiting">Opponent Thinking...</span>`;
+      }
+    }
+
+    function handlePlayerClick(e) {
+      if (!myMove || winner || !gameStarted) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const col = Math.floor(x / (400 / 3));
+      const row = Math.floor(y / (400 / 3));
+      const index = row * 3 + col;
+
+      if (board[index]) return; // Cell occupied
+
+      makeMove(index, mySymbol);
+      sendToOpponent({ type: 'MOVE', index });
+      
+      myMove = false;
+      updateStatus();
+    }
+
+    function handleOpponentMove(index) {
+      const oppSymbol = mySymbol === 'X' ? 'O' : 'X';
+      makeMove(index, oppSymbol);
+      myMove = true;
+      updateStatus();
+    }
+
+    function makeMove(index, symbol) {
+      board[index] = symbol;
+      const history = (symbol === 'X') ? xHistory : oHistory;
+      history.push(index);
+
+      // INFINITE RULE: Only 3 pieces allowed
+      if (history.length > 3) {
+        const oldest = history.shift();
+        board[oldest] = null;
+        // Particle effect or transient state could be added here
+      }
+
+      checkWinner();
+    }
+
+    canvas.addEventListener('mousedown', handlePlayerClick);
+
+    // --- Rendering ---
+    function draw() {
+      ctx.clearRect(0,0,400,400);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(100, 120, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      // Verticals
+      ctx.moveTo(133, 20); ctx.lineTo(133, 380);
+      ctx.moveTo(266, 20); ctx.lineTo(266, 380);
+      // Horizontals
+      ctx.moveTo(20, 133); ctx.lineTo(380, 133);
+      ctx.moveTo(20, 266); ctx.lineTo(380, 266);
+      ctx.stroke();
+
+      // Board Elements
+      board.forEach((cell, i) => {
+        if (!cell) return;
+        const r = Math.floor(i / 3);
+        const c = i % 3;
+        const x = c * 133.3 + 66.6;
+        const y = r * 133.3 + 66.6;
+        
+        // Determine if this is the NEXT piece to fade out (the tail of the history)
+        const history = (cell === 'X') ? xHistory : oHistory;
+        const isOldest = (history[0] === i && history.length === 3);
+        
+        if (cell === 'X') drawX(x, y, isOldest);
+        else drawO(x, y, isOldest);
+      });
+
+      // Win Line
+      if (winLine) {
+        const start = winLine[0];
+        const end = winLine[2];
+        const sR = Math.floor(start/3), sC = start%3;
+        const eR = Math.floor(end/3), eC = end%3;
+        
+        ctx.strokeStyle = winner === 'X' ? '#fff' : '#fff';
+        ctx.lineWidth = 8;
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = winner === 'X' ? '#00e5ff' : '#ff4081';
+        ctx.beginPath();
+        ctx.moveTo(sC * 133.3 + 66.6, sR * 133.3 + 66.6);
+        ctx.lineTo(eC * 133.3 + 66.6, eR * 133.3 + 66.6);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    function drawX(x, y, isFading) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.shadowBlur = isFading ? 5 : 15;
+      ctx.shadowColor = '#00e5ff';
+      
+      const size = 35;
+      if (isFading) ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 100) * 0.1;
+
+      ctx.beginPath();
+      ctx.moveTo(-size, -size); ctx.lineTo(size, size);
+      ctx.moveTo(size, -size); ctx.lineTo(-size, size);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawO(x, y, isFading) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.strokeStyle = '#ff4081';
+      ctx.lineWidth = 10;
+      ctx.shadowBlur = isFading ? 5 : 15;
+      ctx.shadowColor = '#ff4081';
+
+      if (isFading) ctx.globalAlpha = 0.3 + Math.sin(Date.now() / 100) * 0.1;
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 35, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    draw();
+  </script>
+</body>
+</html>
