@@ -16,23 +16,16 @@ function MainApp() {
   const navigate = useNavigate();
   const { socket } = useSocket();
 
-  // Server emits 'rejoin' when it recognises our UUID within the 90s grace window.
-  // Navigate back to /play so the game session can resume.
+  // Instant crash recovery router: If a valid match exists in local storage, route to it natively instantly.
   useEffect(() => {
-    if (!socket) return;
-
-    const handleRejoin = ({ roomId }) => {
-      const savedState = localStorage.getItem('ostl_match_state');
-      if (savedState) {
-        try {
-          navigate('/play', { state: JSON.parse(savedState), replace: true });
-        } catch (e) { localStorage.removeItem('ostl_match_state'); }
-      }
-    };
-
-    socket.on('rejoin', handleRejoin);
-    return () => socket.off('rejoin', handleRejoin);
-  }, [socket, navigate]);
+    const savedState = localStorage.getItem('ostl_match_state');
+    
+    if (savedState && window.location.pathname !== '/play') {
+      try {
+        navigate('/play', { state: JSON.parse(savedState), replace: true });
+      } catch (e) { localStorage.removeItem('ostl_match_state'); }
+    }
+  }, [navigate]);
 
   return (
     <div className="w-full min-h-screen bg-slate-950 flex flex-col relative overflow-x-hidden selection:bg-indigo-500/30">

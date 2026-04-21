@@ -114,6 +114,9 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
         setupDataChannel(dc);
         
         try {
+          // BUFFER: Allow React lifecycles on the other client to completely remount the useWebRTC hook before blasting the new SDP offer.
+          await new Promise((r) => setTimeout(r, 1000));
+          
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           socket.emit('send_offer', { roomId, offer: pc.localDescription });

@@ -22,11 +22,12 @@ import { motion, AnimatePresence } from "framer-motion";
 export function GamePage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { socket } = useSocket();
+  const { socket, uuid } = useSocket();
 
   const [sessionContext, setSessionContext] = useState(() => {
     let context = location.state;
     if (context) {
+      if (uuid) context.uuid = uuid;
       localStorage.setItem("ostl_match_state", JSON.stringify(context));
       return context;
     }
@@ -440,6 +441,15 @@ const ChatBubble = ({ msg }) => {
 };
 // Overlays
 function ReconnectingOverlay({ opponentName }) {
+  const [timeLeft, setTimeLeft] = useState(90);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -471,7 +481,7 @@ function ReconnectingOverlay({ opponentName }) {
             {opponentName} disconnected...
           </p>
           <p className="text-gray-500 dark:text-gray-500 text-sm mb-8">
-            Waiting 15 seconds for reconnection...
+            Waiting {timeLeft} seconds for reconnection...
           </p>
         </div>
       </motion.div>

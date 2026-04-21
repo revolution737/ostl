@@ -10,20 +10,34 @@ export const useSocket = () => {
 
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
-  const [uuid, setUuid] = useState(null);
+  const [uuid, setUuid] = useState(() => {
+    // Attempt to recover UUID from an active match in localStorage (CRASH RECOVERY)
+    let stateStr = localStorage.getItem("ostl_match_state");
+    let recoveredUuid = null;
+    if (stateStr) {
+      try {
+        const stateObj = JSON.parse(stateStr);
+        if (stateObj.uuid) recoveredUuid = stateObj.uuid;
+      } catch (e) {}
+    }
+
+    let storedUuid = sessionStorage.getItem("ostl_uuid");
+    
+    // If we recovered a crash, forcibly use the recovered UUID to authenticate on reconnect
+    if (recoveredUuid) {
+       storedUuid = recoveredUuid;
+       sessionStorage.setItem("ostl_uuid", storedUuid);
+    } else if (!storedUuid) {
+       storedUuid = uuidv4();
+       sessionStorage.setItem("ostl_uuid", storedUuid);
+    }
+    return storedUuid;
+  });
+  
   const [isConnected, setIsConnected] = useState(false);
+  const [rejoinData, setRejoinData] = useState(null);
 
   useEffect(() => {
-    // UUID lives in sessionStorage so each browser TAB gets its own identity.
-    // This is critical for two-tab local testing — localStorage would make both
-    // tabs share the same UUID, causing matchmaking deduplication to reject one.
-    // The ostl_match_state reconnection payload (in localStorage) handles crash recovery.
-    let storedUuid = sessionStorage.getItem("ostl_uuid");
-    if (!storedUuid) {
-      storedUuid = uuidv4();
-      sessionStorage.setItem("ostl_uuid", storedUuid);
-    }
-    setUuid(storedUuid);
 
     // 2. Initialize Socket.IO connection
     // Safely fallback to window.location.origin for production monoliths
@@ -44,12 +58,16 @@ export const SocketProvider = ({ children }) => {
       console.log("[socket] Connected to server.", socketInstance.id);
       setIsConnected(true);
       // Immediately register our ephemeral presence
-      socketInstance.emit("register", { uuid: storedUuid });
+      socketInstance.emit("register", { uuid });
     });
 
     socketInstance.on("disconnect", () => {
       console.log("[socket] Disconnected from server.");
       setIsConnected(false);
+    });
+
+    socketInstance.on("rejoin", (data) => {
+      setRejoinData(data);
     });
 
     setSocket(socketInstance);
@@ -60,7 +78,7 @@ export const SocketProvider = ({ children }) => {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, uuid, isConnected }}>
+    <SocketContext.Provider value={{ socket, uuid, isConnected, rejoinData }}>
       {children}
     </SocketContext.Provider>
   );
