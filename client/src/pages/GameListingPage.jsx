@@ -54,14 +54,17 @@ export function GameListingPage() {
   const handlePlayNow = () => {
     if (!socket || !isConnected || !selectedGame) return;
 
+    // Clear any stale match session so GamePage doesn't hydrate an old room
+    sessionStorage.removeItem('ostl_match_state');
+
     const finalName =
       displayName.trim() ||
       RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
 
     navigate(`/matchmaking/${selectedGame.slug}`, {
       state: {
-        gameId: selectedGame.slug, // Use slug as the unique ID
-        playUrl: selectedGame.play_url, // pass the cloud hosted URL
+        gameId: selectedGame.slug,
+        playUrl: selectedGame.play_url,
         displayName: finalName,
       },
     });

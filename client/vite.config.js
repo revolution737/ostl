@@ -34,13 +34,19 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
-        changeOrigin: true
+        changeOrigin: true,
       },
-      // Only proxy /games if there is something AFTER the slash (the actual assets)
+      // Proxy socket.io (HTTP polling + WebSocket upgrade)
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        ws: true,
+      },
+      // Proxy game asset requests to the Express game server
       '^/games/.+': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-      }
-    }
-  }
+      },
+    },
+  },
 })

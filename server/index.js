@@ -56,16 +56,16 @@ app.use(createGameServingMiddleware());
 const clientDistPath = path.join(__dirname, "../client/dist");
 app.use(express.static(clientDistPath));
 
-// SPA Fallback: Any unknown GET request goes to React Router
+// SPA Fallback: Only catch routes that are meant for React Router (not /api or /games)
 app.use((req, res, next) => {
-  if (req.method !== "GET") return next();
-  res.sendFile(path.join(clientDistPath, "index.html"), (err) => {
+  if (req.method !== 'GET') return next();
+  // Let /api and /games 404 naturally — don't serve React app for these
+  if (req.path.startsWith('/api/') || req.path.startsWith('/games/')) return next();
+  res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
     if (err) {
-      console.error("[server] SPA fallback sendFile error:", err);
+      console.error('[server] SPA fallback sendFile error:', err);
       if (!res.headersSent)
-        res
-          .status(500)
-          .send("Internal Server Error: Unable to serve index.html");
+        res.status(500).send('Internal Server Error: Unable to serve index.html');
     }
   });
 });

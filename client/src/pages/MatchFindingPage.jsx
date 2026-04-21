@@ -16,6 +16,9 @@ export function MatchFindingPage() {
   const playUrl = location.state?.playUrl;
 
   useEffect(() => {
+    // Always wipe any leftover match session when entering matchmaking
+    sessionStorage.removeItem('ostl_match_state');
+
     const interval = setInterval(() => {
       setSecondsElapsed((prev) => prev + 1);
     }, 1000);

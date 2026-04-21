@@ -14,6 +14,8 @@ import {
   UserX,
   Swords,
   CheckCircle,
+  MessageSquare,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,6 +50,7 @@ export function GamePage() {
   }, [sessionContext, navigate]);
 
   // 2. State & Hooks
+  const [chatOpen, setChatOpen] = useState(false); // mobile chat drawer
   const [chatInput, setChatInput] = useState("");
   const [chatEnabled, setChatEnabled] = useState(true);
   const [opponentChatDisabled, setOpponentChatDisabled] = useState(false);
@@ -195,8 +198,112 @@ export function GamePage() {
     gamePath = `${apiBase}${gamePath}`;
   }
 
+  // Chat panel — shared markup used on both desktop and mobile drawer
+  const ChatPanel = (
+    <>
+      {/* Panel header */}
+      <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wide">
+          Match Chat
+        </h3>
+        <div className="flex gap-2">
+          <button
+            onClick={toggleChat}
+            className={`p-2 rounded-md transition-colors ${
+              chatEnabled
+                ? "text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800"
+                : "bg-gray-100 text-gray-400 dark:bg-slate-800"
+            }`}
+            title="Toggle Chat"
+          >
+            <MessageSquareOff className="w-4 h-4" />
+          </button>
+          {/* Close button — only visible on mobile */}
+          <button
+            onClick={() => setChatOpen(false)}
+            className="md:hidden p-2 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+            title="Close Chat"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <button
+            onClick={leaveMatch}
+            className="p-2 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+            title="Leave Match"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Messages area */}
+      <div className="flex-1 relative overflow-hidden bg-gray-50/50 dark:bg-slate-900/50">
+        {!chatEnabled && (
+          <div className="absolute inset-0 z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none">
+            <MessageSquareOff size={32} className="text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-gray-500">You Disabled Chat</p>
+          </div>
+        )}
+        <div ref={scrollRef} className="h-full overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          {chatHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 h-full">
+              <MessageSquareOff size={32} className="mb-3 opacity-20" />
+              <p className="text-xs font-mono uppercase tracking-widest opacity-50">
+                No Messages Yet
+              </p>
+            </div>
+          ) : (
+            chatHistory.map((msg) => <ChatBubble key={msg.id} msg={msg} />)
+          )}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+        <form onSubmit={handleChatSend} className="relative flex gap-2">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder={
+              !chatEnabled
+                ? "Chat disabled"
+                : opponentChatDisabled
+                  ? `${opponentName} disabled chat`
+                  : status === "connected"
+                    ? "Type a message..."
+                    : "Waiting for connection..."
+            }
+            disabled={
+              status !== "connected" ||
+              !chatEnabled ||
+              isReconnecting ||
+              opponentChatDisabled
+            }
+            className="flex-1 bg-gray-100 dark:bg-slate-900 border border-transparent focus:border-blue-500 rounded-full pl-4 pr-10 py-2.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            maxLength={200}
+          />
+          <button
+            type="submit"
+            disabled={
+              status !== "connected" ||
+              !chatEnabled ||
+              isReconnecting ||
+              opponentChatDisabled ||
+              !chatInput.trim()
+            }
+            className="absolute right-1 top-1 bottom-1 aspect-square flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-slate-800 disabled:text-gray-500 transition-colors"
+            title="Send"
+          >
+            <Send size={15} className="-ml-0.5" />
+          </button>
+        </form>
+      </div>
+    </>
+  );
+
   return (
-    <div className="h-screen bg-gray-50 dark:bg-black flex flex-col overflow-hidden font-sans">
+    <div className="h-[100dvh] bg-gray-50 dark:bg-black flex flex-col overflow-hidden font-sans">
       <AnimatePresence>
         {isReconnecting === true && (
           <ReconnectingOverlay opponentName={opponentName} />
@@ -233,8 +340,9 @@ export function GamePage() {
       </AnimatePresence>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 bg-white dark:bg-black p-4 relative flex flex-col">
-          <div className="flex-1 bg-gradient-to-br from-blue-50 to-gray-50 dark:from-slate-900 dark:to-slate-950 rounded-2xl border-2 border-gray-200 dark:border-slate-800 flex items-center justify-center relative overflow-hidden shadow-inner">
+        {/* ── Game Canvas ── */}
+        <div className="flex-1 bg-white dark:bg-black p-2 md:p-4 relative flex flex-col min-w-0">
+          <div className="flex-1 bg-gradient-to-br from-blue-50 to-gray-50 dark:from-slate-900 dark:to-slate-950 rounded-2xl border-2 border-gray-200 dark:border-slate-800 flex flex-col relative overflow-hidden shadow-inner min-h-0">
             <GameWrapper
               roomId={roomId}
               isHost={isHost}
@@ -251,98 +359,58 @@ export function GamePage() {
           </div>
         </div>
 
-        <div className="w-80 bg-white dark:bg-slate-950 border-l border-gray-200 dark:border-slate-800 flex flex-col shadow-2xl relative z-10">
-          <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wide">
-              Match Chat
-            </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={toggleChat}
-                className={`p-2 rounded-md transition-colors ${chatEnabled ? "text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800" : "bg-gray-100 text-gray-400 dark:bg-slate-800"}`}
-                title="Toggle Chat"
-              >
-                <MessageSquareOff className="w-4 h-4" />
-              </button>
-              <button
-                onClick={leaveMatch}
-                className="p-2 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                title="Leave Match"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 relative overflow-hidden bg-gray-50/50 dark:bg-slate-900/50">
-            {!chatEnabled && (
-              <div className="absolute inset-0 z-20 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none">
-                <MessageSquareOff size={32} className="text-gray-400 mb-2" />
-                <p className="text-sm font-medium text-gray-500">
-                  You Disabled Chat
-                </p>
-              </div>
-            )}
-
-            <div
-              ref={scrollRef}
-              className="h-full overflow-y-auto p-4 space-y-4 custom-scrollbar"
-            >
-              {chatHistory.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 h-full">
-                  <MessageSquareOff size={32} className="mb-3 opacity-20" />
-                  <p className="text-xs font-mono uppercase tracking-widest opacity-50">
-                    No Messages Yet
-                  </p>
-                </div>
-              ) : (
-                chatHistory.map((msg) => <ChatBubble key={msg.id} msg={msg} />)
-              )}
-            </div>
-          </div>
-
-          <div className="p-4 border-t border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-            <form onSubmit={handleChatSend} className="relative flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={
-                  !chatEnabled
-                    ? "Chat disabled"
-                    : opponentChatDisabled
-                      ? `${opponentName} disabled chat`
-                      : status === "connected"
-                        ? "Type a message..."
-                        : "Waiting for connection..."
-                }
-                disabled={
-                  status !== "connected" ||
-                  !chatEnabled ||
-                  isReconnecting ||
-                  opponentChatDisabled
-                }
-                className="flex-1 bg-gray-100 dark:bg-slate-900 border border-transparent focus:border-blue-500 rounded-full pl-4 pr-10 py-2.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                maxLength={200}
-              />
-              <button
-                type="submit"
-                disabled={
-                  status !== "connected" ||
-                  !chatEnabled ||
-                  isReconnecting ||
-                  opponentChatDisabled ||
-                  !chatInput.trim()
-                }
-                className="absolute right-1 top-1 bottom-1 aspect-square flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-slate-800 disabled:text-gray-500 transition-colors"
-                title="Send"
-              >
-                <Send size={15} className="-ml-0.5" />
-              </button>
-            </form>
-          </div>
+        {/* ── Desktop Chat Sidebar (md+) ── */}
+        <div className="hidden md:flex w-80 bg-white dark:bg-slate-950 border-l border-gray-200 dark:border-slate-800 flex-col shadow-2xl relative z-10">
+          {ChatPanel}
         </div>
       </div>
+
+      {/* ── Mobile: Floating Chat Toggle Button ── */}
+      <button
+        onClick={() => setChatOpen(true)}
+        className="md:hidden fixed bottom-5 right-5 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 hover:bg-blue-700 active:scale-95 transition-all"
+        aria-label="Open Chat"
+      >
+        <MessageSquare size={22} />
+        {chatHistory.length > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 text-[10px] font-bold bg-rose-500 text-white rounded-full flex items-center justify-center">
+            {chatHistory.length > 9 ? '9+' : chatHistory.length}
+          </span>
+        )}
+      </button>
+
+      {/* ── Mobile Chat Drawer ── */}
+      <AnimatePresence>
+        {chatOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="chat-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setChatOpen(false)}
+              className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            />
+            {/* Drawer */}
+            <motion.div
+              key="chat-drawer"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-white dark:bg-slate-950 rounded-t-3xl shadow-2xl border-t border-gray-200 dark:border-slate-800"
+              style={{ maxHeight: "75dvh", height: "75dvh" }}
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-slate-700" />
+              </div>
+              {ChatPanel}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
