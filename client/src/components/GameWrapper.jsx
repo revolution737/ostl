@@ -183,28 +183,6 @@ export function GameWrapper({
 
   return (
     <div className="flex flex-col flex-1 h-full w-full bg-slate-900 overflow-hidden relative border-r border-slate-800 shadow-2xl">
-      {/* Header & Status Bar */}
-      <div className="absolute top-0 left-0 w-full px-3 py-2 md:p-4 flex justify-between items-center bg-gradient-to-b from-slate-950/90 to-transparent z-10 pointer-events-none">
-
-        <div className="pointer-events-auto flex items-center gap-2">
-          <div className="inline-flex items-center gap-1.5 px-2 py-1 md:px-3 md:py-1.5 rounded-full bg-slate-800/80 border border-slate-700 backdrop-blur text-slate-300 text-[10px] md:text-xs font-semibold shadow-black/50">
-            <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0 ${status === 'connected' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse' : 'bg-amber-500 animate-pulse'}`}></span>
-            <span className="hidden xs:inline">P2P: </span>{status.toUpperCase()}
-          </div>
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-mono tracking-widest uppercase backdrop-blur">
-            <MonitorPlay size={12} />
-            {isHost ? 'Host' : 'Guest'}
-          </div>
-        </div>
-
-        <button
-          onClick={onDisconnect}
-          className="pointer-events-auto flex items-center gap-1.5 text-[10px] md:text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/30 px-3 py-1.5 md:px-4 md:py-2 rounded-full transition-all shadow-lg hover:shadow-rose-500/20"
-        >
-          <LogOut size={12} /> <span className="hidden sm:inline">Leave Match</span><span className="sm:hidden">Leave</span>
-        </button>
-      </div>
-
       {/* Embedded Iframe Container */}
       <div className="flex-1 w-full relative bg-slate-950 overflow-hidden">
         {status !== 'connected' && !isReconnecting && (
