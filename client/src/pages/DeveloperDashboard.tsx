@@ -84,7 +84,7 @@ export function DeveloperDashboard() {
                onClick={() => {
                  localStorage.removeItem('developerId');
                  localStorage.removeItem('developerContext');
-                 navigate('/developers');
+                 navigate('/');
                }}
                variant="outline"
              >
