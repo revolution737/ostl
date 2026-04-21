@@ -246,6 +246,39 @@ router.post("/", upload.single("gameZip"), async (req, res) => {
   }
 });
 
+// ─── PATCH /api/games/:slug ──────────────────────────────
+router.patch("/:slug", async (req, res) => {
+  const { slug } = req.params;
+  const { developer_id, title, description, thumbnail_url } = req.body;
+
+  try {
+    if (!developer_id) return res.status(401).json({ error: "Unauthorized." });
+
+    const { rows: existing } = await db.query(
+      "SELECT id FROM game_catalog WHERE slug = $1 AND developer_id = $2",
+      [slug, developer_id],
+    );
+    
+    if (existing.length === 0)
+      return res.status(403).json({ error: "Permission denied." });
+
+    await db.query(
+      `
+      UPDATE game_catalog 
+      SET title = COALESCE($1, title),
+          description = COALESCE($2, description),
+          thumbnail_url = COALESCE($3, thumbnail_url)
+      WHERE slug = $4 AND developer_id = $5
+      `,
+      [title, description, thumbnail_url, slug, developer_id]
+    );
+
+    res.status(200).json({ message: "Game metadata updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── PUT /api/games/:slug ────────────────────────────────
 router.put("/:slug", upload.single("gameZip"), async (req, res) => {
   const tmpPath = req.file?.path;
