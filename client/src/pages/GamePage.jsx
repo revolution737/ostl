@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useWebRTC } from "../hooks/useWebRTC";
 import { useSocket } from "../context/SocketProvider";
 import { GameWrapper } from "../components/GameWrapper";
+import { FALLBACK_GAME_ID } from "../lib/api";
 import {
   Send,
   LogOut,
@@ -18,6 +19,9 @@ import {
   X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+
+// Reconnect state enum — avoids mixed bool/string type
+// 'idle' | 'reconnecting' | 'failed'
 
 export function GamePage() {
   const navigate = useNavigate();
@@ -49,13 +53,12 @@ export function GamePage() {
     }
   }, [sessionContext, navigate]);
 
-  // 2. State & Hooks
-  const [chatOpen, setChatOpen] = useState(false); // mobile chat drawer
+  const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatEnabled, setChatEnabled] = useState(true);
   const [opponentChatDisabled, setOpponentChatDisabled] = useState(false);
   const scrollRef = useRef(null);
-  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState("idle"); // 'idle' | 'reconnecting' | 'failed'
   const [reconnectKey, setReconnectKey] = useState(0);
 
   const [gameKey, setGameKey] = useState(Date.now());
@@ -80,12 +83,12 @@ export function GamePage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("opponent_reconnecting", ({ opponentName }) => {
-      setIsReconnecting(true);
+    socket.on("opponent_reconnecting", () => {
+      setIsReconnecting("reconnecting");
     });
 
-    socket.on("opponent_rejoined", ({ opponentName }) => {
-      setIsReconnecting(false);
+    socket.on("opponent_rejoined", () => {
+      setIsReconnecting("idle");
       setReconnectKey((prev) => prev + 1);
     });
 
@@ -184,23 +187,163 @@ export function GamePage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [scrollTriggerLength]);
 
-  // ChatBubble Component moved outside to prevent re-mounts on keystrokes
-
   if (!roomId) return null;
 
   // CRITICAL FIX: Base URL handling
+  const apiBase = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || "") : "";
   let gamePath =
     sessionContext?.playUrl ||
-    `/games/${sessionContext?.gameId || "dummy-game"}/index.html`;
+    `/games/${sessionContext?.gameId || FALLBACK_GAME_ID}/index.html`;
 
   // Ensure we point to the Express backend explicitly if the frontend is hosted elsewhere
-  const apiBase = import.meta.env.PROD ? (import.meta.env.VITE_API_URL || "") : "";
   if (gamePath.startsWith("/")) {
     gamePath = `${apiBase}${gamePath}`;
   }
 
-  // Chat panel — shared markup used on both desktop and mobile drawer
-  const ChatPanel = (
+  return (
+    <div className="h-[100dvh] bg-gray-50 dark:bg-black flex flex-col overflow-hidden font-sans">
+      <AnimatePresence>
+        {isReconnecting === "reconnecting" && (
+          <ReconnectingOverlay opponentName={opponentName} />
+        )}
+        {isReconnecting === "failed" && (
+          <OpponentLeftOverlay
+            opponentName={opponentName}
+            onLeave={leaveMatch}
+            onRetry={() => {
+              localStorage.removeItem("ostl_match_state");
+              navigate(
+                `/matchmaking/${sessionContext?.gameId || FALLBACK_GAME_ID}`,
+                {
+                  state: {
+                    gameId: sessionContext?.gameId || FALLBACK_GAME_ID,
+                    displayName,
+                  },
+                },
+              );
+            }}
+          />
+        )}
+        {gameOverData && (
+          <GameOverOverlay
+            winner={gameOverData.winner}
+            isHost={isHost}
+            opponentName={opponentName}
+            rematchState={rematchState}
+            onRequestRematch={requestRematch}
+            onAcceptRematch={acceptRematch}
+            onLeave={leaveMatch}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* ── Game Canvas ── */}
+        <div className="flex-1 bg-white dark:bg-black p-2 md:p-4 relative flex flex-col min-w-0">
+          <div className="flex-1 bg-gradient-to-br from-blue-50 to-gray-50 dark:from-slate-900 dark:to-slate-950 rounded-2xl border-2 border-gray-200 dark:border-slate-800 flex flex-col relative overflow-hidden shadow-inner min-h-0">
+            <GameWrapper
+              roomId={roomId}
+              isHost={isHost}
+              gamePath={gamePath}
+              onDisconnect={leaveMatch}
+              status={status}
+              messages={messages}
+              sendMessage={sendMessage}
+              isReconnecting={isReconnecting}
+              setOnGameData={setOnGameData}
+              gameKey={gameKey}
+              onGameOver={(data) => setGameOverData(data)}
+            />
+          </div>
+        </div>
+
+        {/* ── Desktop Chat Sidebar (md+) ── */}
+        <div className="hidden md:flex w-80 bg-white dark:bg-slate-950 border-l border-gray-200 dark:border-slate-800 flex-col shadow-2xl relative z-10">
+          <ChatPanel
+            chatEnabled={chatEnabled}
+            toggleChat={toggleChat}
+            leaveMatch={leaveMatch}
+            setChatOpen={setChatOpen}
+            chatHistory={chatHistory}
+            scrollRef={scrollRef}
+            status={status}
+            opponentChatDisabled={opponentChatDisabled}
+            opponentName={opponentName}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            handleChatSend={handleChatSend}
+            isReconnecting={isReconnecting}
+          />
+        </div>
+      </div>
+
+      {/* ── Mobile: Floating Chat Toggle Button ── */}
+      <button
+        onClick={() => setChatOpen(true)}
+        className="md:hidden fixed bottom-5 right-5 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 hover:bg-blue-700 active:scale-95 transition-all"
+        aria-label="Open Chat"
+      >
+        <MessageSquare size={22} />
+        {chatHistory.length > 0 && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 text-[10px] font-bold bg-rose-500 text-white rounded-full flex items-center justify-center">
+            {chatHistory.length > 9 ? '9+' : chatHistory.length}
+          </span>
+        )}
+      </button>
+
+      {/* ── Mobile Chat Drawer ── */}
+      <AnimatePresence>
+        {chatOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="chat-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setChatOpen(false)}
+              className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            />
+            {/* Drawer */}
+            <motion.div
+              key="chat-drawer"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 300 }}
+              className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-white dark:bg-slate-950 rounded-t-3xl shadow-2xl border-t border-gray-200 dark:border-slate-800"
+              style={{ maxHeight: "75dvh", height: "75dvh" }}
+            >
+              {/* Drag handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-slate-700" />
+              </div>
+              <ChatPanel
+                chatEnabled={chatEnabled}
+                toggleChat={toggleChat}
+                leaveMatch={leaveMatch}
+                setChatOpen={setChatOpen}
+                chatHistory={chatHistory}
+                scrollRef={scrollRef}
+                status={status}
+                opponentChatDisabled={opponentChatDisabled}
+                opponentName={opponentName}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                handleChatSend={handleChatSend}
+                isReconnecting={isReconnecting}
+              />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── Chat Panel Component ──
+function ChatPanel({ chatEnabled, toggleChat, leaveMatch, setChatOpen, chatHistory, scrollRef, status, opponentChatDisabled, opponentName, chatInput, setChatInput, handleChatSend, isReconnecting }) {
+  return (
     <>
       {/* Panel header */}
       <div className="p-4 border-b border-gray-200 dark:border-slate-800 flex items-center justify-between">
@@ -278,7 +421,7 @@ export function GamePage() {
             disabled={
               status !== "connected" ||
               !chatEnabled ||
-              isReconnecting ||
+              isReconnecting !== "idle" ||
               opponentChatDisabled
             }
             className="flex-1 bg-gray-100 dark:bg-slate-900 border border-transparent focus:border-blue-500 rounded-full pl-4 pr-10 py-2.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
@@ -289,7 +432,7 @@ export function GamePage() {
             disabled={
               status !== "connected" ||
               !chatEnabled ||
-              isReconnecting ||
+              isReconnecting !== "idle" ||
               opponentChatDisabled ||
               !chatInput.trim()
             }
@@ -301,118 +444,6 @@ export function GamePage() {
         </form>
       </div>
     </>
-  );
-
-  return (
-    <div className="h-[100dvh] bg-gray-50 dark:bg-black flex flex-col overflow-hidden font-sans">
-      <AnimatePresence>
-        {isReconnecting === true && (
-          <ReconnectingOverlay opponentName={opponentName} />
-        )}
-        {isReconnecting === "failed" && (
-          <OpponentLeftOverlay
-            opponentName={opponentName}
-            onLeave={leaveMatch}
-            onRetry={() => {
-              localStorage.removeItem("ostl_match_state");
-              navigate(
-                `/matchmaking/${sessionContext?.gameId || "dummy-game"}`,
-                {
-                  state: {
-                    gameId: sessionContext?.gameId || "dummy-game",
-                    displayName,
-                  },
-                },
-              );
-            }}
-          />
-        )}
-        {gameOverData && (
-          <GameOverOverlay
-            winner={gameOverData.winner}
-            isHost={isHost}
-            opponentName={opponentName}
-            rematchState={rematchState}
-            onRequestRematch={requestRematch}
-            onAcceptRematch={acceptRematch}
-            onLeave={leaveMatch}
-          />
-        )}
-      </AnimatePresence>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* ── Game Canvas ── */}
-        <div className="flex-1 bg-white dark:bg-black p-2 md:p-4 relative flex flex-col min-w-0">
-          <div className="flex-1 bg-gradient-to-br from-blue-50 to-gray-50 dark:from-slate-900 dark:to-slate-950 rounded-2xl border-2 border-gray-200 dark:border-slate-800 flex flex-col relative overflow-hidden shadow-inner min-h-0">
-            <GameWrapper
-              roomId={roomId}
-              isHost={isHost}
-              gamePath={gamePath}
-              onDisconnect={leaveMatch}
-              status={status}
-              messages={messages}
-              sendMessage={sendMessage}
-              isReconnecting={isReconnecting}
-              setOnGameData={setOnGameData}
-              gameKey={gameKey}
-              onGameOver={(data) => setGameOverData(data)}
-            />
-          </div>
-        </div>
-
-        {/* ── Desktop Chat Sidebar (md+) ── */}
-        <div className="hidden md:flex w-80 bg-white dark:bg-slate-950 border-l border-gray-200 dark:border-slate-800 flex-col shadow-2xl relative z-10">
-          {ChatPanel}
-        </div>
-      </div>
-
-      {/* ── Mobile: Floating Chat Toggle Button ── */}
-      <button
-        onClick={() => setChatOpen(true)}
-        className="md:hidden fixed bottom-5 right-5 z-40 flex items-center justify-center w-14 h-14 rounded-full bg-blue-600 text-white shadow-xl shadow-blue-500/30 hover:bg-blue-700 active:scale-95 transition-all"
-        aria-label="Open Chat"
-      >
-        <MessageSquare size={22} />
-        {chatHistory.length > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 text-[10px] font-bold bg-rose-500 text-white rounded-full flex items-center justify-center">
-            {chatHistory.length > 9 ? '9+' : chatHistory.length}
-          </span>
-        )}
-      </button>
-
-      {/* ── Mobile Chat Drawer ── */}
-      <AnimatePresence>
-        {chatOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              key="chat-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setChatOpen(false)}
-              className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            />
-            {/* Drawer */}
-            <motion.div
-              key="chat-drawer"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-white dark:bg-slate-950 rounded-t-3xl shadow-2xl border-t border-gray-200 dark:border-slate-800"
-              style={{ maxHeight: "75dvh", height: "75dvh" }}
-            >
-              {/* Drag handle */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="w-10 h-1 rounded-full bg-gray-300 dark:bg-slate-700" />
-              </div>
-              {ChatPanel}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 
@@ -440,7 +471,8 @@ const ChatBubble = ({ msg }) => {
     </motion.div>
   );
 };
-// Overlays
+
+// ── Overlays ──
 function ReconnectingOverlay({ opponentName }) {
   const [timeLeft, setTimeLeft] = useState(90);
 

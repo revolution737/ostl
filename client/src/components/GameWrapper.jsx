@@ -15,7 +15,6 @@ export function GameWrapper({
   onGameOver
 }) {
   const iframeRef    = useRef(null);
-  const overlayRef   = useRef(null);
   // --- A. HANDSHAKE (Platform -> Engine) ---
   // The Game Engines natively blast their own `READY` telemetry pulses on a 1000ms loop infinitely until they successfully ingest the `START` configuration payload. We defer completely to their pulse loops instead of aggressively polling blindly into uninitialized iframes.
 
@@ -24,9 +23,9 @@ export function GameWrapper({
   useEffect(() => {
     if (!iframeRef.current || !iframeRef.current.contentWindow) return;
     
-    if (isReconnecting === true) {
+    if (isReconnecting === "reconnecting") {
       iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'PAUSE_GAME' }), '*');
-    } else if (isReconnecting === false) {
+    } else if (isReconnecting === "idle") {
       iframeRef.current.contentWindow.postMessage(JSON.stringify({ type: 'RESUME_GAME' }), '*');
     }
   }, [isReconnecting]);
@@ -55,7 +54,7 @@ export function GameWrapper({
       }
 
       // Relay all game messages to the opponent via WebRTC
-      if (status === 'connected' && !isReconnecting) {
+      if (status === 'connected' && isReconnecting === "idle") {
         sendMessage(JSON.stringify(data));
       }
     };
@@ -88,7 +87,7 @@ export function GameWrapper({
     <div className="flex flex-col flex-1 h-full w-full bg-slate-900 overflow-hidden relative border-r border-slate-800 shadow-2xl">
       {/* Embedded Iframe Container */}
       <div className="flex-1 w-full relative bg-slate-950 overflow-hidden">
-        {status !== 'connected' && !isReconnecting && (
+        {status !== 'connected' && isReconnecting === "idle" && (
           <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center z-20 backdrop-blur-md">
             {status === 'failed' ? (
               <>
@@ -110,7 +109,7 @@ export function GameWrapper({
           key={gameKey}
           ref={iframeRef}
           src={gamePath}
-          className={`w-full h-full border-0 focus:outline-none transition-opacity duration-300 ${isReconnecting ? 'opacity-20 blur-sm pointer-events-none' : 'opacity-100'}`}
+          className={`w-full h-full border-0 focus:outline-none transition-opacity duration-300 ${isReconnecting !== "idle" ? 'opacity-20 blur-sm pointer-events-none' : 'opacity-100'}`}
           style={{ display: 'block' }}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           title="Sandbox Engine"

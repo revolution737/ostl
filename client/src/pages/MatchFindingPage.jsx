@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { useSocket } from '../context/SocketProvider';
+import { FALLBACK_GAME_ID } from '../lib/api';
 
 export function MatchFindingPage() {
   const location = useLocation();
@@ -11,7 +12,7 @@ export function MatchFindingPage() {
   const [secondsElapsed, setSecondsElapsed] = useState(0);
   
   // Safe extraction of params
-  const gameId = location.state?.gameId || 'dummy-game';
+  const gameId = location.state?.gameId || FALLBACK_GAME_ID;
   const displayName = location.state?.displayName || 'Player';
   const playUrl = location.state?.playUrl;
 
