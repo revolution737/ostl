@@ -33,6 +33,7 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
   const initializationRef = useRef(false);
+  const pendingIceCandidates = useRef([]); // ICE Candidate async queuing buffer
   // Direct callback ref — fires IMMEDIATELY when opponent data arrives,
   // bypassing React's state batching entirely.
   const onGameDataRef = useRef(null);
@@ -85,6 +86,13 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
         if (isHost) return;
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          
+          // Flush any perfectly-queued ICE candidates successfully back into the resolved PeerConnection 
+          pendingIceCandidates.current.forEach(async (candidate) => {
+             try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e){}
+          });
+          pendingIceCandidates.current = [];
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('send_answer', { roomId, answer: pc.localDescription });
@@ -97,6 +105,12 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
         if (!isHost) return;
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+          // Flush queued candidates that logically arrived before the remote answers resolved
+          pendingIceCandidates.current.forEach(async (candidate) => {
+             try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch(e){}
+          });
+          pendingIceCandidates.current = [];
         } catch (e) {
           setStatus('failed');
         }
@@ -104,7 +118,11 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
 
       socket.on('receive_ice_candidate', async ({ candidate }) => {
         try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            pendingIceCandidates.current.push(candidate);
+          }
         } catch (e) {}
       });
 
@@ -182,6 +200,7 @@ export function useWebRTC(socket, roomId, isHost, reconnectKey = 0) {
       
       if (dataChannelRef.current) dataChannelRef.current.close();
       pc.close();
+      pendingIceCandidates.current = [];
       initializationRef.current = false;
       setStatus('disconnected');
     };
