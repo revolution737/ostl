@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dungeon Grid Tactics</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-dark: #1a1510;
+  --bg-light: #231d16;
+  --gold: #c8962a;
+  --gold-light: #f0c060;
+  --red-border: #5a4020;
+  --blue-player: #3060a0;
+  --red-enemy: #a03030;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-dark);
+  color: #ddd;
+  font-family: 'Crimson Text', serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-image: 
+    linear-gradient(45deg, var(--bg-light) 25%, transparent 25%, transparent 75%, var(--bg-light) 75%, var(--bg-light)),
+    linear-gradient(45deg, var(--bg-light) 25%, transparent 25%, transparent 75%, var(--bg-light) 75%, var(--bg-light));
+  background-size: 40px 40px;
+  background-position: 0 0, 20px 20px;
+}
+h1, h2, h3, .cinzel { font-family: 'Cinzel', serif; }
+
+.screen {
+  display: none;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 0; left: 0;
+  z-index: 10;
+  background: inherit;
+  background-image: inherit;
+  background-size: inherit;
+  background-position: inherit;
+}
+.screen.active { display: flex; }
+
+/* Wait Screen */
+#screen-wait h1 { color: var(--gold-light); font-size: 3rem; margin-bottom: 0.5rem; text-shadow: 0 0 10px var(--gold); text-align: center; }
+#screen-wait h2 { color: #aaa; font-size: 1.5rem; margin-bottom: 2rem; text-align: center; }
+.pulse-text { animation: pulse 1.5s infinite; color: var(--gold); font-size: 1.2rem; margin: 20px 0; }
+@keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+.torch { font-size: 3rem; animation: flicker 0.15s infinite alternate; }
+@keyframes flicker { 0% { opacity: 0.8; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1.02); } }
+
+/* Game Screen */
+#screen-game { padding: 10px; justify-content: flex-start; z-index: 5; background: none;}
+#top-bar { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(0,0,0,0.6); border: 1px solid var(--red-border); margin-bottom: 10px; }
+#top-bar h2 { color: var(--gold); font-size: 1.2rem; }
+#status-text { color: #fff; font-weight: bold; }
+
+#game-layout {
+  display: flex;
+  gap: 20px;
+  max-width: 1000px;
+  width: 100%;
+  justify-content: center;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel {
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 100%;
+}
+.panel::-webkit-scrollbar { width: 4px; }
+.panel::-webkit-scrollbar-thumb { background: var(--red-border); }
+
+.unit-card {
+  background: rgba(17, 17, 17, 0.9);
+  border: 1px solid var(--red-border);
+  padding: 8px;
+  cursor: pointer;
+  transition: border 0.2s, opacity 0.2s;
+  user-select: none;
+  flex-shrink: 0;
+}
+.unit-card.dead { opacity: 0.35; pointer-events: none; }
+.unit-card.selected { border-color: var(--gold-light); box-shadow: 0 0 8px var(--gold); }
+.unit-card-header { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+.unit-card-header .emoji { font-size: 1.2rem; }
+.unit-card-header span { font-weight: bold; color: var(--gold); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-bar-container { background: #333; height: 6px; width: 100%; margin-bottom: 5px; border-radius: 3px; overflow: hidden; }
+.hp-bar { height: 100%; background: #2a2; transition: width 0.3s; }
+.stats { display: flex; justify-content: space-between; font-size: 0.8rem; color: #bbb; }
+
+#board-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(6, 72px);
+  grid-template-rows: repeat(6, 72px);
+  gap: 3px;
+  background: var(--red-border);
+  padding: 3px;
+}
+.cell {
+  background: #2a221a;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2.5rem;
+  cursor: pointer;
+  user-select: none;
+  transition: filter 0.2s, background 0.2s, border 0.2s;
+  border: 2px solid transparent;
+}
+.cell.obstacle { font-size: 2rem; cursor: not-allowed; }
+.cell:hover { filter: brightness(1.3); }
+
+/* Highlights */
+.cell.moveable { background: #1a2a40; border-color: #4a80d0; }
+.cell.attackable { background: #401a1a; border-color: #d04040; }
+.cell.selected-cell { border-color: var(--gold-light); }
+
+/* Unit rendering in cells */
+.cell-unit {
+  position: absolute;
+  inset: 2px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 5px;
+  pointer-events: none;
+}
+.cell-unit.blue { box-shadow: inset 0 0 0 2px var(--blue-player); }
+.cell-unit.red { box-shadow: inset 0 0 0 2px var(--red-enemy); }
+.cell-unit.acted { filter: grayscale(0.5) opacity(0.7); }
+
+.cell-hp {
+  position: absolute;
+  bottom: 2px;
+  left: 5%;
+  width: 90%;
+  height: 4px;
+  background: #333;
+  pointer-events: none;
+}
+.cell-hp-fill { height: 100%; background: #2a2; transition: width 0.3s; }
+
+/* Damage float animation */
+.damage-float {
+  position: absolute;
+  color: #ff4444;
+  font-weight: bold;
+  font-family: 'Cinzel', serif;
+  font-size: 1.8rem;
+  pointer-events: none;
+  animation: float-up 1s forwards ease-out;
+  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  z-index: 10;
+}
+/* Miss float animation */
+.miss-float {
+  color: #aaa;
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-40px) scale(1.2); opacity: 0; }
+}
+
+#action-bar {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  justify-content: center;
+}
+button {
+  background: rgba(26, 21, 16, 0.9);
+  border: 1px solid var(--red-border);
+  color: var(--gold);
+  padding: 8px 16px;
+  font-family: 'Cinzel', serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+button:hover:not(:disabled) { background: var(--red-border); color: #fff; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.active-btn { background: var(--gold); color: #000; border-color: var(--gold-light);}
+
+#combat-log {
+  width: 100%;
+  max-width: 500px;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid var(--red-border);
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  height: 120px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+#combat-log::-webkit-scrollbar { width: 4px; }
+#combat-log::-webkit-scrollbar-thumb { background: var(--red-border); }
+
+.log-entry { margin: 2px 0; }
+.log-sys { color: var(--gold-light); }
+.log-dmg { color: #ff6666; }
+.log-move { color: #6699ff; }
+
+/* Result Screen */
+#screen-result h1 { font-size: 4rem; margin-bottom: 1rem; text-align: center; }
+#screen-result.victory h1 { color: var(--gold-light); text-shadow: 0 0 20px var(--gold); }
+#screen-result.defeat h1 { color: #888; text-shadow: 0 0 10px #444; }
+#screen-result p { font-size: 1.5rem; color: #ccc; margin-bottom: 2rem; text-align: center; }
+
+/* Responsive */
+@media (max-width: 680px) {
+  #board { grid-template-columns: repeat(6, 54px); grid-template-rows: repeat(6, 54px); }
+  .panel { width: 120px; }
+  .cell { font-size: 2rem; }
+  .unit-card-header span { font-size: 0.8rem; }
+  .stats { font-size: 0.7rem; }
+}
+@media (max-width: 520px) {
+  #game-layout { flex-direction: column; align-items: center; flex: 0;}
+  .panel { width: 100%; flex-direction: row; overflow-x: auto; overflow-y: hidden; max-height: 110px; }
+  .unit-card { min-width: 110px; }
+  #board { grid-template-columns: repeat(6, 46px); grid-template-rows: repeat(6, 46px); }
+  .cell { font-size: 1.6rem; }
+  #combat-log { height: 80px; }
+  #top-bar h2 { font-size: 1rem; }
+  #status-text { font-size: 0.9rem; }
+  #screen-game { overflow-y: auto; }
+}
+</style>
+</head>
+<body>
+
+  <!-- Wait Screen -->
+  <div id="screen-wait" class="screen active">
+    <div class="torch">🕯️</div>
+    <h1 class="cinzel">Dungeon<br>Grid Tactics</h1>
+    <h2 class="cinzel">Tactical RPG Sandbox</h2>
+    <div class="pulse-text cinzel">Seeking an opponent...</div>
+    <div class="torch">🕯️</div>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="screen-game" class="screen">
+    <div id="top-bar">
+      <h2 class="cinzel">Dungeon Grid Tactics</h2>
+      <div id="status-text">Connecting...</div>
+    </div>
+    
+    <div id="game-layout">
+      <!-- Left Panel (Player) -->
+      <div id="left-panel" class="panel"></div>
+      
+      <!-- Board Area -->
+      <div id="board-container">
+        <div id="board"></div>
+        <div id="action-bar">
+          <button id="btn-move" disabled>Move</button>
+          <button id="btn-attack" disabled>Attack</button>
+          <button id="btn-end" disabled>End Turn</button>
+        </div>
+        <div id="combat-log"></div>
+      </div>
+      
+      <!-- Right Panel (Enemy) -->
+      <div id="right-panel" class="panel"></div>
+    </div>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="screen-result" class="screen">
+    <div class="torch">🕯️</div>
+    <h1 id="result-title" class="cinzel">Victory!</h1>
+    <p id="result-desc">The dungeon is yours.</p>
+    <div class="torch">🕯️</div>
+  </div>
+
+<script>
+// ============================================================================
+// STATE & CONSTANTS
+// ============================================================================
+const UNIT_TYPES = [
+  { name: 'Warrior', emoji: '⚔️', hp: 24, atk: 6, mov: 2, range: 1 },
+  { name: 'Archer',  emoji: '🏹', hp: 16, atk: 8, mov: 2, range: 2 },
+  { name: 'Mage',    emoji: '🔮', hp: 12, atk: 11, mov: 1, range: 2 }
+];
+
+const OBSTACLES = [7, 14, 21, 28]; // flat indices
+
+let state = {
+  isHost: false,
+  myTurn: false,
+  myColor: 'blue',
+  enemyColor: 'red',
+  started: false,
+  paused: false,
+  units: [],
+  selectedUid: null,
+  actionMode: null, // 'move', 'attack', null
+  logs: [],
+  gameOver: false
+};
+
+// Audio Context
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+window.addEventListener('click', initAudio, { once: true });
+window.addEventListener('touchstart', initAudio, { once: true });
+
+// DOM Elements
+const screens = {
+  wait: document.getElementById('screen-wait'),
+  game: document.getElementById('screen-game'),
+  result: document.getElementById('screen-result')
+};
+const boardEl = document.getElementById('board');
+const leftPanel = document.getElementById('left-panel');
+const rightPanel = document.getElementById('right-panel');
+const statusText = document.getElementById('status-text');
+const btnMove = document.getElementById('btn-move');
+const btnAttack = document.getElementById('btn-attack');
+const btnEnd = document.getElementById('btn-end');
+const combatLog = document.getElementById('combat-log');
+
+// ============================================================================
+// AUDIO SFX
+// ============================================================================
+function playTone(freq, type, duration, vol, startTimeOffset = 0) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime + startTimeOffset);
+  
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime + startTimeOffset);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + startTimeOffset + duration);
+  
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(audioCtx.currentTime + startTimeOffset);
+  osc.stop(audioCtx.currentTime + startTimeOffset + duration);
+}
+
+function sfxSelect() { playTone(880, 'sine', 0.1, 0.1); }
+function sfxMove() { 
+  playTone(440, 'triangle', 0.1, 0.1, 0); 
+  playTone(554, 'triangle', 0.2, 0.1, 0.08); 
+}
+function sfxAttack() { playTone(110, 'sawtooth', 0.3, 0.2); }
+function sfxDeath() {
+  if(!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.5);
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+}
+function sfxVictory() {
+  playTone(440, 'sine', 0.3, 0.1, 0);
+  playTone(554, 'sine', 0.3, 0.1, 0.13);
+  playTone(659, 'sine', 0.3, 0.1, 0.26);
+  playTone(880, 'sine', 0.8, 0.1, 0.39);
+}
+function sfxDefeat() {
+  playTone(349, 'triangle', 0.4, 0.1, 0);
+  playTone(329, 'triangle', 0.4, 0.1, 0.18);
+  playTone(293, 'triangle', 0.4, 0.1, 0.36);
+  playTone(261, 'triangle', 0.8, 0.1, 0.54);
+}
+
+// ============================================================================
+// GAME LOGIC
+// ============================================================================
+function initGame(isHost) {
+  state.isHost = isHost;
+  state.started = true;
+  state.myTurn = isHost; // Host goes first
+  showScreen('game');
+  logMsg('Match started!', 'sys');
+  
+  // Setup Units
+  state.units = [];
+  
+  const setupSide = (isMySide, startPos) => {
+    const ownerColor = isMySide ? state.myColor : state.enemyColor;
+    const ownerName = isMySide ? 'blue' : 'red';
+    UNIT_TYPES.forEach((ut, i) => {
+      const pos = startPos[i];
+      state.units.push({
+        uid: `${ownerName}_${i}`,
+        name: ut.name,
+        emoji: ut.emoji,
+        hp: ut.hp,
+        maxHp: ut.hp,
+        atk: ut.atk,
+        mov: ut.mov,
+        range: ut.range,
+        owner: ownerName,
+        r: Math.floor(pos / 6),
+        c: pos % 6,
+        moved: false,
+        attacked: false
+      });
+    });
+  };
+
+  if (isHost) {
+    setupSide(true, [0, 1, 2]);      // Blue starts top-left
+    setupSide(false, [35, 34, 33]);  // Red starts bottom-right
+  } else {
+    // Guest starts at bottom-right, Enemy top-left
+    setupSide(false, [0, 1, 2]);     // Enemy Blue
+    setupSide(true, [35, 34, 33]);   // My Red
+    state.myColor = 'red';
+    state.enemyColor = 'blue';
+  }
+
+  renderAll();
+}
+
+function getUnitAt(r, c) {
+  return state.units.find(u => u.r === r && u.c === c && u.hp > 0);
+}
+
+function getUnitById(uid) {
+  return state.units.find(u => u.uid === uid);
+}
+
+// Map helpers
+function getCellIndex(r, c) { return r * 6 + c; }
+function isWalkable(r, c) {
+  if (r < 0 || r >= 6 || c < 0 || c >= 6) return false;
+  if (OBSTACLES.includes(getCellIndex(r, c))) return false;
+  if (getUnitAt(r, c)) return false;
+  return true;
+}
+function getManhattanDist(r1, c1, r2, c2) {
+  return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+}
+
+// Pathfinding (BFS)
+function getReachableCells(startR, startC, mov) {
+  const reachable = [];
+  const queue = [{ r: startR, c: startC, dist: 0 }];
+  const visited = new Set([`${startR},${startC}`]);
+
+  while (queue.length > 0) {
+    const { r, c, dist } = queue.shift();
+    if (dist > 0) reachable.push({ r, c });
+
+    if (dist < mov) {
+      const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      for (let [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (isWalkable(nr, nc) && !visited.has(`${nr},${nc}`)) {
+          visited.add(`${nr},${nc}`);
+          queue.push({ r: nr, c: nc, dist: dist + 1 });
+        }
+      }
+    }
+  }
+  return reachable;
+}
+
+function getAttackableCells(u) {
+  const cells = [];
+  state.units.forEach(enemy => {
+    if (enemy.hp > 0 && enemy.owner !== u.owner) {
+      if (getManhattanDist(u.r, u.c, enemy.r, enemy.c) <= u.range) {
+        cells.push({ r: enemy.r, c: enemy.c, targetUid: enemy.uid });
+      }
+    }
+  });
+  return cells;
+}
+
+// Log
+function logMsg(text, type) {
+  state.logs.unshift({ text, type });
+  if (state.logs.length > 8) state.logs.pop();
+  renderLog();
+}
+
+function checkWinCondition() {
+  const myAlive = state.units.some(u => u.owner === state.myColor && u.hp > 0);
+  const enemyAlive = state.units.some(u => u.owner === state.enemyColor && u.hp > 0);
+  
+  if (!myAlive || !enemyAlive) {
+    state.gameOver = true;
+    setTimeout(() => {
+      showScreen('result');
+      const res = document.getElementById('screen-result');
+      if (!enemyAlive && myAlive) {
+        sfxVictory();
+        res.className = 'screen active victory';
+        document.getElementById('result-title').innerText = 'Victory!';
+        document.getElementById('result-desc').innerText = 'You vanquished the enemy.';
+        sendUp({ type: 'GAME_OVER', winner: state.isHost ? 'Host' : 'Guest' });
+      } else if (!myAlive && enemyAlive) {
+        sfxDefeat();
+        res.className = 'screen active defeat';
+        document.getElementById('result-title').innerText = 'Defeat';
+        document.getElementById('result-desc').innerText = 'Your forces were routed.';
+        sendUp({ type: 'GAME_OVER', winner: state.isHost ? 'Guest' : 'Host' });
+      } else {
+        res.className = 'screen active defeat';
+        document.getElementById('result-title').innerText = 'Draw';
+        document.getElementById('result-desc').innerText = 'Mutual destruction.';
+        sendUp({ type: 'GAME_OVER', winner: 'Draw' });
+      }
+    }, 800);
+    return true;
+  }
+  return false;
+}
+
+// Action Application
+function applyMove(uid, r, c, isLocal) {
+  const u = getUnitById(uid);
+  if (!u) return;
+  u.r = r; u.c = c;
+  u.moved = true;
+  if(isLocal) sfxMove();
+  logMsg(`${u.name} moved.`, 'move');
+  
+  if (isLocal) {
+    sendUp({ type: 'GAME_ACTION', action: { kind: 'MOVE', uid, r, c } });
+    state.actionMode = null;
+  }
+  renderAll();
+}
+
+function applyAttack(uid, targetUid, dmg, isLocal) {
+  const u = getUnitById(uid);
+  const target = getUnitById(targetUid);
+  if (!u || !target) return;
+
+  u.attacked = true;
+  target.hp -= dmg;
+  if (target.hp < 0) target.hp = 0;
+
+  if (isLocal) {
+    sendUp({ type: 'GAME_ACTION', action: { kind: 'ATTACK', uid, targetUid, dmg } });
+    state.actionMode = null;
+  }
+  
+  sfxAttack();
+  logMsg(`${u.name} hit ${target.name} for ${dmg} DMG!`, 'dmg');
+
+  // Spawn damage number
+  const cellIdx = getCellIndex(target.r, target.c);
+  const cellEl = boardEl.children[cellIdx];
+  const dmgEl = document.createElement('div');
+  dmgEl.className = 'damage-float';
+  dmgEl.innerText = `-${dmg}`;
+  cellEl.appendChild(dmgEl);
+  setTimeout(() => { if(dmgEl.parentNode) dmgEl.parentNode.removeChild(dmgEl); }, 1000);
+
+  if (target.hp === 0) {
+    sfxDeath();
+    logMsg(`${target.name} perished!`, 'sys');
+  }
+
+  checkWinCondition();
+  renderAll();
+}
+
+function endTurn(isLocal) {
+  state.myTurn = !state.myTurn;
+  state.selectedUid = null;
+  state.actionMode = null;
+  
+  state.units.forEach(u => {
+    if (u.owner === (state.myTurn ? state.myColor : state.enemyColor)) {
+      u.moved = false;
+      u.attacked = false;
+    }
+  });
+
+  if (isLocal) {
+    sendUp({ type: 'GAME_ACTION', action: { kind: 'END_TURN' } });
+  }
+  
+  logMsg(state.myTurn ? "Your turn begins." : "Opponent's turn.", 'sys');
+  renderAll();
+}
+
+// Interaction Handlers
+function onCellClick(r, c) {
+  if (state.gameOver || !state.myTurn || state.paused) return;
+
+  const clickedUnit = getUnitAt(r, c);
+  const su = state.selectedUid ? getUnitById(state.selectedUid) : null;
+
+  if (state.actionMode === 'move' && su && !su.moved) {
+    const reachable = getReachableCells(su.r, su.c, su.mov);
+    if (reachable.some(p => p.r === r && p.c === c)) {
+      applyMove(su.uid, r, c, true);
+    }
+    return;
+  }
+
+  if (state.actionMode === 'attack' && su && !su.attacked) {
+    const attackable = getAttackableCells(su);
+    const target = attackable.find(p => p.r === r && p.c === c);
+    if (target) {
+      const dmg = Math.max(1, su.atk + Math.floor(Math.random() * 4) - 1);
+      applyAttack(su.uid, target.targetUid, dmg, true);
+    }
+    return;
+  }
+
+  // Selection
+  if (clickedUnit && clickedUnit.owner === state.myColor) {
+    sfxSelect();
+    state.selectedUid = clickedUnit.uid;
+    state.actionMode = null;
+    renderAll();
+  } else {
+    state.selectedUid = null;
+    state.actionMode = null;
+    renderAll();
+  }
+}
+
+// ============================================================================
+// RENDERING
+// ============================================================================
+function showScreen(id) {
+  Object.values(screens).forEach(el => el.classList.remove('active'));
+  screens[id].classList.add('active');
+}
+
+function renderAll() {
+  if(state.gameOver) {
+    statusText.innerText = "Game Over";
+  } else if (state.paused) {
+    statusText.innerText = "Game Paused (Opponent DC)";
+  } else {
+    statusText.innerText = state.myTurn ? "Your Turn" : "Opponent Thinking...";
+    statusText.style.color = state.myTurn ? varColor(state.myColor) : '#aaa';
+  }
+
+  renderBoard();
+  renderPanels();
+  renderActionButtons();
+}
+
+function varColor(c) {
+  return c === 'blue' ? '#3060a0' : '#a03030';
+}
+
+function renderBoard() {
+  boardEl.innerHTML = '';
+  const su = state.selectedUid ? getUnitById(state.selectedUid) : null;
+  let reachable = [];
+  let attackable = [];
+  
+  if (state.myTurn && su) {
+    if (state.actionMode === 'move' && !su.moved) reachable = getReachableCells(su.r, su.c, su.mov);
+    if (state.actionMode === 'attack' && !su.attacked) attackable = getAttackableCells(su);
+  }
+
+  for (let r = 0; r < 6; r++) {
+    for (let c = 0; c < 6; c++) {
+      const idx = getCellIndex(r, c);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (OBSTACLES.includes(idx)) {
+        cell.classList.add('obstacle');
+        cell.innerText = '🪨';
+      }
+
+      if (su && su.r === r && su.c === c) cell.classList.add('selected-cell');
+      if (reachable.some(p => p.r === r && p.c === c)) cell.classList.add('moveable');
+      if (attackable.some(p => p.r === r && p.c === c)) cell.classList.add('attackable');
+
+      cell.onclick = () => onCellClick(r, c);
+
+      const u = getUnitAt(r, c);
+      if (u) {
+        const uEl = document.createElement('div');
+        uEl.className = `cell-unit ${u.owner}`;
+        uEl.innerText = u.emoji;
+        if(u.owner === state.myColor && u.moved && u.attacked) uEl.classList.add('acted');
+        cell.appendChild(uEl);
+
+        const hpC = document.createElement('div');
+        hpC.className = 'cell-hp';
+        const hpF = document.createElement('div');
+        hpF.className = 'cell-hp-fill';
+        hpF.style.width = `${(u.hp / u.maxHp) * 100}%`;
+        if (u.hp / u.maxHp < 0.35) hpF.style.background = '#d44';
+        hpC.appendChild(hpF);
+        cell.appendChild(hpC);
+      }
+
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function renderPanels() {
+  const myUnits = state.units.filter(u => u.owner === state.myColor);
+  const enemyUnits = state.units.filter(u => u.owner === state.enemyColor);
+  
+  const renderCard = (u, container) => {
+    const card = document.createElement('div');
+    card.className = `unit-card ${u.hp <= 0 ? 'dead' : ''} ${state.selectedUid === u.uid ? 'selected' : ''}`;
+    card.onclick = () => {
+      if (u.owner === state.myColor && u.hp > 0 && state.myTurn && !state.paused) {
+        sfxSelect();
+        state.selectedUid = u.uid;
+        state.actionMode = null;
+        renderAll();
+      }
+    };
+    
+    card.innerHTML = `
+      <div class="unit-card-header">
+        <span class="emoji">${u.emoji}</span>
+        <span>${u.name}</span>
+      </div>
+      <div class="hp-bar-container">
+        <div class="hp-bar" style="width: ${(u.hp / Math.max(1, u.maxHp)) * 100}%; background: ${u.hp/u.maxHp < 0.35 ? '#d44' : '#2a2'}"></div>
+      </div>
+      <div class="stats">
+        <span>❤️${u.hp}</span>
+        <span>⚔${u.atk}</span>
+        <span>👟${u.mov}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  };
+
+  leftPanel.innerHTML = '';
+  myUnits.forEach(u => renderCard(u, leftPanel));
+  rightPanel.innerHTML = '';
+  enemyUnits.forEach(u => renderCard(u, rightPanel));
+}
+
+function renderActionButtons() {
+  btnMove.disabled = true;
+  btnAttack.disabled = true;
+  btnEnd.disabled = true;
+  btnMove.className = '';
+  btnAttack.className = '';
+
+  if (state.gameOver || state.paused) return;
+
+  if (state.myTurn) {
+    btnEnd.disabled = false;
+    const su = state.selectedUid ? getUnitById(state.selectedUid) : null;
+    if (su) {
+      if (!su.moved) btnMove.disabled = false;
+      if (!su.attacked) btnAttack.disabled = false;
+      
+      if (state.actionMode === 'move') btnMove.className = 'active-btn';
+      if (state.actionMode === 'attack') btnAttack.className = 'active-btn';
+    }
+  }
+}
+
+function renderLog() {
+  combatLog.innerHTML = state.logs.map(l => `<div class="log-entry log-${l.type}">${l.text}</div>`).join('');
+}
+
+btnMove.onclick = () => { sfxSelect(); state.actionMode = state.actionMode === 'move' ? null : 'move'; renderAll(); };
+btnAttack.onclick = () => { sfxSelect(); state.actionMode = state.actionMode === 'attack' ? null : 'attack'; renderAll(); };
+btnEnd.onclick = () => { sfxSelect(); endTurn(true); };
+
+// ============================================================================
+// PLATFORM INTEGRATION (OSTL)
+// ============================================================================
+function sendUp(obj) {
+  if (window.parent !== window) {
+    window.parent.postMessage(JSON.stringify(obj), '*');
+  }
+}
+
+window.addEventListener('message', (evt) => {
+  let msg;
+  try {
+    msg = (typeof evt.data === 'string') ? JSON.parse(evt.data) : evt.data;
+  } catch (e) { return; }
+  if (!msg || !msg.type) return;
+
+  switch (msg.type) {
+    case 'START':
+      if (state.started) return;
+      initGame(msg.isHost);
+      break;
+    
+    case 'GAME_ACTION':
+      if (state.paused || state.gameOver) return;
+      const act = msg.action;
+      if (act.kind === 'MOVE') applyMove(act.uid, act.r, act.c, false);
+      else if (act.kind === 'ATTACK') applyAttack(act.uid, act.targetUid, act.dmg, false);
+      else if (act.kind === 'END_TURN') endTurn(false);
+      break;
+
+    case 'PAUSE_GAME':
+      state.paused = true;
+      renderAll();
+      break;
+
+    case 'RESUME_GAME':
+      state.paused = false;
+      renderAll();
+      break;
+  }
+});
+
+// Start checking in with Platform
+if (window.parent !== window) {
+  const hb = setInterval(() => {
+    if (state.started) { clearInterval(hb); return; }
+    sendUp({ type: 'READY' });
+  }, 800);
+} else {
+  // Solo Test Mode
+  setTimeout(() => {
+    console.log("Solo Test Mode Started");
+    initGame(true);
+  }, 1500);
+}
+</script>
+</body>
+</html>
