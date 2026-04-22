@@ -409,47 +409,44 @@ function sfxDefeat() {
 // ============================================================================
 function initGame(isHost) {
   state.isHost = isHost;
+  // Set perspective FIRST so all subsequent logic is correct
+  state.myColor    = isHost ? 'blue' : 'red';
+  state.enemyColor = isHost ? 'red'  : 'blue';
+  state.myTurn  = isHost; // Host goes first
   state.started = true;
-  state.myTurn = isHost; // Host goes first
   showScreen('game');
   logMsg('Match started!', 'sys');
-  
-  // Setup Units
-  state.units = [];
-  
-  const setupSide = (isMySide, startPos) => {
-    const ownerColor = isMySide ? state.myColor : state.enemyColor;
-    const ownerName = isMySide ? 'blue' : 'red';
-    UNIT_TYPES.forEach((ut, i) => {
-      const pos = startPos[i];
-      state.units.push({
-        uid: `${ownerName}_${i}`,
-        name: ut.name,
-        emoji: ut.emoji,
-        hp: ut.hp,
-        maxHp: ut.hp,
-        atk: ut.atk,
-        mov: ut.mov,
-        range: ut.range,
-        owner: ownerName,
-        r: Math.floor(pos / 6),
-        c: pos % 6,
-        moved: false,
-        attacked: false
-      });
-    });
-  };
 
-  if (isHost) {
-    setupSide(true, [0, 1, 2]);      // Blue starts top-left
-    setupSide(false, [35, 34, 33]);  // Red starts bottom-right
-  } else {
-    // Guest starts at bottom-right, Enemy top-left
-    setupSide(false, [0, 1, 2]);     // Enemy Blue
-    setupSide(true, [35, 34, 33]);   // My Red
-    state.myColor = 'red';
-    state.enemyColor = 'blue';
-  }
+  // BOTH clients construct the EXACT same board state.
+  // 'blue' units always start top-left; 'red' units always start bottom-right.
+  // myColor / enemyColor determine which side the local player controls.
+  // This ensures uid → position mappings are identical on both clients,
+  // so network-sent uids always resolve to the same unit on both screens.
+  state.units = [];
+  const BLUE_STARTS = [0, 1, 2];
+  const RED_STARTS  = [35, 34, 33];
+
+  UNIT_TYPES.forEach((ut, i) => {
+    const pos = BLUE_STARTS[i];
+    state.units.push({
+      uid: `blue_${i}`, name: ut.name, emoji: ut.emoji,
+      hp: ut.hp, maxHp: ut.hp, atk: ut.atk, mov: ut.mov, range: ut.range,
+      owner: 'blue',
+      r: Math.floor(pos / 6), c: pos % 6,
+      moved: false, attacked: false
+    });
+  });
+
+  UNIT_TYPES.forEach((ut, i) => {
+    const pos = RED_STARTS[i];
+    state.units.push({
+      uid: `red_${i}`, name: ut.name, emoji: ut.emoji,
+      hp: ut.hp, maxHp: ut.hp, atk: ut.atk, mov: ut.mov, range: ut.range,
+      owner: 'red',
+      r: Math.floor(pos / 6), c: pos % 6,
+      moved: false, attacked: false
+    });
+  });
 
   renderAll();
 }
@@ -869,26 +866,34 @@ window.addEventListener('message', (evt) => {
 
 // ── P2P Hydration Logic ──────────────────────────────────────────
 function hydrateSyncState(s) {
-  // The sync payload is from the OPPONENT's perspective.
-  // Unit positions/HP are shared state — both players see the same board.
-  // The only thing that changes between perspectives is:
-  //   - "myTurn" is flipped
-  //   - "myColor" / "enemyColor" are already set correctly by initGame()
-
-  // If the board is still at initial positions, ignore (both just booted)
+  // Guard: only apply sync after initGame() has run on this client.
+  // Without this, a sync arriving before START would corrupt a fresh client.
+  if (!state.started) return;
   if (!s.units || s.units.length === 0) return;
 
-  // Restore all unit state from opponent's memory
-  state.units = s.units;
+  // Unit positions/HP are shared state — both players see the same board.
+  state.units    = s.units;
   state.gameOver = s.gameOver;
-  state.logs = s.logs || [];
+  state.logs     = s.logs || [];
 
-  // The opponent sent THEIR myTurn — ours is the opposite
+  // Opponent sent THEIR myTurn — ours is the inverse
   state.myTurn = !s.myTurn;
 
-  // Clear selection state
+  // If it is now our turn, reset our own units' action flags.
+  // The opponent's state may contain stale moved/attacked=true values
+  // from actions we performed before disconnecting; those are already
+  // reflected in position/HP, so the only safe reset is for the active side.
+  if (state.myTurn) {
+    state.units.forEach(u => {
+      if (u.owner === state.myColor) {
+        u.moved = false;
+        u.attacked = false;
+      }
+    });
+  }
+
   state.selectedUid = null;
-  state.actionMode = null;
+  state.actionMode  = null;
 
   logMsg('State recovered from opponent.', 'sys');
   renderAll();
