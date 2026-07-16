@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const path = require("path");
+const cors = require("cors");
 const { Server } = require("socket.io");
 const { createAdapter } = require("@socket.io/redis-adapter");
 const { registerHandlers } = require("./handlers");
@@ -25,16 +26,14 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/games", express.static(path.join(__dirname, "uploads/games")));
 
 // CORS headers for API routes
-app.use("/api", (req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-  );
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
-  next();
-});
+app.use(
+  "/api",
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 // ─── REST API ────────────────────────────────────────────
 app.use("/api/games", gamesRouter);
@@ -58,14 +57,17 @@ app.use(express.static(clientDistPath));
 
 // SPA Fallback: Only catch routes that are meant for React Router (not /api or /games)
 app.use((req, res, next) => {
-  if (req.method !== 'GET') return next();
+  if (req.method !== "GET") return next();
   // Let /api and /games 404 naturally — don't serve React app for these
-  if (req.path.startsWith('/api/') || req.path.startsWith('/games/')) return next();
-  res.sendFile(path.join(clientDistPath, 'index.html'), (err) => {
+  if (req.path.startsWith("/api/") || req.path.startsWith("/games/"))
+    return next();
+  res.sendFile(path.join(clientDistPath, "index.html"), (err) => {
     if (err) {
-      console.error('[server] SPA fallback sendFile error:', err);
+      console.error("[server] SPA fallback sendFile error:", err);
       if (!res.headersSent)
-        res.status(500).send('Internal Server Error: Unable to serve index.html');
+        res
+          .status(500)
+          .send("Internal Server Error: Unable to serve index.html");
     }
   });
 });
